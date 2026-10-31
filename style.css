@@ -1,0 +1,89 @@
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: -apple-system, "PingFang HK", "PingFang TC", "Heiti TC", sans-serif;
+  font-size: 22px;
+  line-height: 1.4;
+  color: #111;
+  background: #f4f6f9;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+main { max-width: 640px; margin: 0 auto; padding: 12px 14px 40px; }
+h1 { font-size: 32px; margin: 8px 0 4px; }
+h2 { font-size: 24px; margin: 20px 0 8px; color: #333; }
+.sub { color: #555; font-size: 18px; }
+.en { color: #666; font-size: 0.75em; font-weight: normal; }
+button { font: inherit; color: inherit; border: none; cursor: pointer; }
+
+.toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.toggle button {
+  padding: 16px 8px; border-radius: 16px; background: #fff; border: 3px solid #cfd6df; font-weight: 600;
+}
+.toggle button.on { border-color: #0b5cab; background: #e6f0fb; color: #0b5cab; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.place {
+  min-height: 92px; padding: 12px 8px; border-radius: 16px; background: #0b5cab; color: #fff;
+  font-size: 24px; font-weight: 700; display: flex; flex-direction: column; justify-content: center;
+}
+.place .en { color: #d6e6fb; font-size: 16px; }
+.place.home { background: #1b7f3b; }
+.place.home .en { color: #d7f2df; }
+
+.bar { display: flex; gap: 10px; margin-top: 18px; }
+.btn {
+  flex: 1; padding: 14px; border-radius: 14px; background: #fff; border: 2px solid #cfd6df; font-weight: 600;
+}
+.btn.primary { background: #0b5cab; color: #fff; border-color: #0b5cab; }
+.btn.danger { color: #b00020; }
+.back { background: none; color: #0b5cab; font-weight: 700; padding: 8px 0; font-size: 22px; }
+
+.card { background: #fff; border-radius: 16px; padding: 14px; margin: 12px 0; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.card.tap { width: 100%; text-align: left; }
+.leave { font-size: 28px; font-weight: 800; }
+.leave.now { color: #c25e00; }
+.leave.missed { color: #888; }
+.times { font-size: 22px; margin-top: 4px; }
+.late { color: #b00020; font-weight: 700; }
+.ontime { color: #1b7f3b; }
+.lines { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.badge { padding: 2px 10px; border-radius: 8px; color: #fff; font-weight: 700; font-size: 20px; }
+.m-train { background: #f39c12; }
+.m-metro { background: #168388; }
+.m-bus { background: #00b5ef; }
+.m-ferry { background: #5ab031; }
+.m-lightrail { background: #ee343f; }
+.m-coach { background: #742283; }
+.m-walk { background: #777; }
+
+.step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e3e7ec; }
+.step:last-child { border-bottom: none; }
+.step .icon { font-size: 34px; width: 44px; text-align: center; flex: none; }
+.step .what { font-size: 24px; font-weight: 700; }
+.step .detail { font-size: 20px; color: #333; }
+.notice { background: #fff4e5; border-left: 5px solid #f39c12; padding: 8px 10px; margin-top: 6px; font-size: 17px; color: #333; }
+
+.msg { text-align: center; padding: 30px 10px; color: #555; }
+.err { background: #fdecee; color: #8a0015; border-radius: 12px; padding: 14px; }
+
+input[type=text], input[type=time] {
+  width: 100%; font: inherit; padding: 12px; border-radius: 12px; border: 2px solid #cfd6df; background: #fff;
+}
+.row { display: flex; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid #e3e7ec; }
+.row .grow { flex: 1; }
+.row button { padding: 8px 12px; border-radius: 10px; background: #eef1f5; }
+.result { width: 100%; text-align: left; padding: 12px; margin: 6px 0; border-radius: 12px; background: #fff; border: 2px solid #cfd6df; }
+.small { font-size: 16px; color: #666; }
+
+.toggle.three { grid-template-columns: 1fr 1fr 1fr; margin-bottom: 10px; }
+.toggle button .small { font-weight: normal; }
+.toggle + .toggle, .bar + .toggle { margin-top: 10px; }
+.when { font-size: 20px; font-weight: 700; color: #0b5cab; margin-bottom: 4px; }
+label.grow { display: block; }
+label input[type=date] { margin-top: 4px; }
+input[type=date] {
+  width: 100%; font: inherit; padding: 12px; border-radius: 12px; border: 2px solid #cfd6df; background: #fff; min-height: 52px;
+}
+.notice details { margin-top: 4px; }
+.notice summary { cursor: pointer; }
