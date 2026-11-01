@@ -3,7 +3,7 @@
 A home-screen web app for getting around Sydney by train and bus. Big buttons, Traditional Chinese (standard written) with English place names, Cantonese read-aloud, and live Transport for NSW times.
 
 - **Main screen:** start from 🏠 home or 📍 current location, now or planned ahead (any day, leave at or arrive by a time), then tap a saved place.
-- **Results:** "leave in X minutes", live delays, and the line badges for each trip. Updates every minute.
+- **Results:** "leave in X minutes", live delays, and the line badges for each trip. Sort by 🔁 fewest changes (direct trips first) or ⚡ fastest. Updates every minute.
 - **Trip details:** step by step, with platform or bus stand, number of stops, and where to change and get off.
 - **⚠️ Service notices:** translated into Traditional Chinese with Cloudflare Workers AI, with the English original one tap away.
 - **🔊 朗讀:** reads the steps aloud in Cantonese, using the iPhone's built-in voice.

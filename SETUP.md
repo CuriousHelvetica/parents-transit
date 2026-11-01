@@ -86,7 +86,7 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
 2. Choose where they're starting: **🏠 家** (home) or **📍 現在位置** (where I am now).
 3. Choose when: **⏱️ 現在** (now), or **📅 預先計劃** (plan ahead). For planning ahead, pick 今天 / 明天 / 後天 (today, tomorrow, the day after) or another date. Then choose **出發時間** (leave at) or **到達時間** (arrive by), and set the time.
 4. Tap where they're going. If starting from "where I am now", there's also a green **🏠 回家** (go home) button.
-5. The top card says **「X 分鐘後出門」** (leave in X minutes), or the date and time to leave for trips further ahead. Tap a card for step-by-step directions: which train or bus, which platform, how many stops, and where to get off.
+5. At the top, **🔁 最少轉車** (fewest changes, direct trips first) or **⚡ 最快** (fastest) changes the order of the trips; nothing is removed. The first card says **「X 分鐘後出門」** (leave in X minutes), or the date and time to leave for trips further ahead. Tap a card for step-by-step directions: which train or bus, which platform, how many stops, and where to get off.
 6. **⚠️ 服務通知** (service notices such as trackwork) are translated into Chinese automatically. Tap 英文原文 to see the original English.
 7. **🔊 朗讀** reads the steps aloud in Cantonese.
 8. The screen updates itself with live delays (every minute for trips leaving now).

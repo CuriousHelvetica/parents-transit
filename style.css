@@ -88,3 +88,4 @@ input[type=date] {
 }
 .notice details { margin-top: 4px; }
 .notice summary { cursor: pointer; }
+.toggle.sort { margin: 10px 0 4px; }

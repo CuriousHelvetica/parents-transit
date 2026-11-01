@@ -359,11 +359,20 @@ async function showTrips(originPlace, destPlace, when) {
   const draw = () => {
     if (state.screen !== 'trips' || !journeys) return;
     if (!journeys.length) return showError(header, '找不到路線。請改一下時間,或稍後再試。');
-    render(header + `<div class="sub">更新時間 ${fmtTime(new Date())}・自動更新</div>` +
-      journeys.map((j, i) => journeyCard(j, i)).join(''), true);
+    const sort = settings.sort || 'changes';
+    const sorted = sortJourneys(journeys, sort, when);
+    render(header + `<div class="toggle sort">
+        <button data-sort="changes" class="${sort === 'changes' ? 'on' : ''}">🔁 最少轉車</button>
+        <button data-sort="fast" class="${sort === 'fast' ? 'on' : ''}">⚡ 最快</button>
+      </div>
+      <div class="sub">更新時間 ${fmtTime(new Date())}・自動更新</div>` +
+      sorted.map((j, i) => journeyCard(j, i)).join(''), true);
     $app.querySelector('[data-back]').onclick = showHome;
+    $app.querySelectorAll('[data-sort]').forEach((b) => b.onclick = () => {
+      settings.sort = b.dataset.sort; saveSettings(); draw();
+    });
     $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-      showJourney(journeys[+b.dataset.j], () => showTrips(originPlace, destPlace, when)));
+      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when)));
   };
   const load = async () => {
     try {
@@ -378,6 +387,18 @@ async function showTrips(originPlace, destPlace, when) {
   // Live times matter for trips leaving soon; planned trips change less often.
   timers.push(setInterval(load, when.mode === 'now' ? 60000 : 300000));
   timers.push(setInterval(draw, 15000));
+}
+
+function changesOf(j) { return Math.max(0, j.legs.filter((l) => !modeOf(l).walk).length - 1); }
+
+// 'fast': arrive earliest (or, for arrive-by searches, leave latest).
+// 'changes': fewest changes first, then fastest. Nothing is removed.
+function sortJourneys(journeys, sort, when) {
+  const arriveBy = when.mode === 'later' && when.arrive;
+  const fast = (a, b) => (arriveBy
+    ? depTime(b.legs[0].origin) - depTime(a.legs[0].origin)
+    : arrTime(a.legs[a.legs.length - 1].destination) - arrTime(b.legs[b.legs.length - 1].destination));
+  return journeys.slice().sort((a, b) => (sort === 'changes' ? changesOf(a) - changesOf(b) : 0) || fast(a, b));
 }
 
 function showError(header, text) {
