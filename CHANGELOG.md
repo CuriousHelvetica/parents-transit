@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.3.6 — 2026-11-02
+- Header card: 爸媽出行 only (English title removed); date line 「現在 11月2日 星期一・晚上 7:30」; 📍 location moved under a thin divider with the suburb on one line and the street on the next, so long names no longer squeeze the title.
+
 ### v1.3.5 — 2026-11-02
 - Main screen: title, time and 📍 location in a white card, and the three questions numbered ① 從哪裡出發? ② 甚麼時候? ③ 去哪裡?, so the header stands apart and the steps read in order.
 

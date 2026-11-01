@@ -408,21 +408,24 @@ async function lookupOsm(lat, lon) {
   return suburb ? { suburb, street: a.road || a.pedestrian || '', source: 'osm',
     raw: [a.house_number, a.road, suburb].filter(Boolean).join(' ') } : null;
 }
+// Location row in the header card: suburb on one line, street on the next (each wraps only if too long).
 function hereHtml() {
-  const dbg = DEBUG && here.log ? `<span class="small">[debug] ${esc(here.log.join(' · '))}</span>` : '';
-  if (here.busy && !here.info) return '<span class="small">📍 更新中…</span>';
-  if (!here.info) return here.at ? `<span class="small">📍 按此顯示位置</span>${dbg}` : '';
+  const dbg = DEBUG && here.log ? `<div class="here-debug">[debug] ${esc(here.log.join(' · '))}</div>` : '';
+  if (here.busy && !here.info) return '<div class="here-line small">📍 更新中…</div>';
+  if (!here.info) return here.at ? `<div class="here-line small">📍 按此顯示位置</div>${dbg}` : '';
   const { suburb, street, source, raw } = here.info;
   const zh = ZH_NAMES[suburb];
-  return `<span class="small">📍 你在${here.busy ? ' (更新中…)' : ''}</span>
-    <b>${zh ? `${esc(zh)} <span class="en">${esc(suburb)}</span>` : esc(suburb)}</b>
-    ${street ? `<span class="small">${esc(street)}</span>` : ''}
-    ${DEBUG ? `<span class="small">[debug] ${esc(source)} ${esc(raw || '')}</span>${dbg}` : ''}`;
+  return `<div class="here-line">📍 你在 <b>${zh ? `${esc(zh)} <span class="en">${esc(suburb)}</span>` : esc(suburb)}</b>${
+      here.busy ? ' <span class="small">(更新中…)</span>' : ''}</div>
+    ${street ? `<div class="here-street">${esc(street)}</div>` : ''}
+    ${DEBUG ? `<div class="here-debug">[debug] ${esc(source)} ${esc(raw || '')}</div>${dbg}` : ''}`;
 }
 function updateHereBox() {
   const el = $app.querySelector('#here');
   if (!el) return;
-  el.innerHTML = hereHtml();
+  const html = hereHtml();
+  el.innerHTML = html;
+  el.style.display = html ? '' : 'none';   // no divider until there is something to show
   el.onclick = () => refreshHere(true);
 }
 async function refreshHere(force) {
@@ -540,11 +543,9 @@ function showHome() {
   const w = state.when;
   render(`
     <div class="hdr">
-      <div class="head">
-        <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
-        <button class="herebox" id="here" aria-label="你在"></button>
-      </div>
-      <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
+      <h1 class="title">爸媽出行</h1>
+      <div class="sub">現在 ${todayLine(now)}</div>
+      <button class="herebox" id="here" aria-label="你在"></button>
     </div>
     <h2><span class="num">1</span>從哪裡出發?</h2>
     <button class="choice" data-row="from">${choiceLabel(state.from)}<span class="chev">›</span></button>
@@ -578,6 +579,13 @@ function showHome() {
   };
   updateHereBox();
   refreshHere(false);
+}
+
+// 「11月2日 星期一・晚上 7:30」 for the header card
+function todayLine(now) {
+  const [, m, d] = sydneyDate(0).split('-').map(Number);
+  const wd = WEEKDAYS[new Date(Date.UTC(...sydneyDate(0).split('-').map((x, k) => (k === 1 ? x - 1 : +x)))).getUTCDay()];
+  return `${m}月${d}日 星期${wd}・${fmtTime(now)}`;
 }
 
 // ---------- 📅 預先計劃 page ----------
