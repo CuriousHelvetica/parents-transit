@@ -382,7 +382,7 @@ function showHome() {
       <button data-arrive="1" class="${w.arrive ? 'on' : ''}">🏁 到達時間</button>
     </div>
     <div class="bar"><input type="time" id="time" value="${w.time}"></div>
-    <div class="sub">${esc(whenSummary(w))}</div>`;
+    <div class="sub" id="whenSummary">${esc(whenSummary(w))}</div>`;
   render(`
     <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
     <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
@@ -414,10 +414,16 @@ function showHome() {
   });
   $app.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => { state.when.date = b.dataset.day; showHome(); });
   $app.querySelectorAll('[data-arrive]').forEach((b) => b.onclick = () => { state.when.arrive = b.dataset.arrive === '1'; showHome(); });
+  // iPhone fires a change on every turn of the picker wheel, so only record the value here and
+  // update the summary line; redrawing the screen would close the picker before it's confirmed.
+  const updateSummary = () => { $app.querySelector('#whenSummary').textContent = whenSummary(state.when); };
   const other = $app.querySelector('#otherDate');
-  if (other) other.onchange = () => { if (other.value) { state.when.date = other.value; showHome(); } };
+  if (other) {
+    other.onchange = () => { if (other.value) { state.when.date = other.value; updateSummary(); } };
+    other.onblur = () => showHome();   // after the picker closes: refresh the 今天/明天/後天 highlight
+  }
   const time = $app.querySelector('#time');
-  if (time) time.onchange = () => { if (time.value) { state.when.time = time.value; showHome(); } };
+  if (time) time.onchange = () => { if (time.value) { state.when.time = time.value; updateSummary(); } };
   $app.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => {
     const dest = b.dataset.go === 'home' ? settings.home : settings.places[+b.dataset.go];
     showTrips(fromHome ? settings.home : 'here', dest, { ...state.when });
