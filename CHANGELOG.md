@@ -42,6 +42,15 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.3.4 — 2026-11-01
+Reliability review:
+- Network requests give up after 20 seconds (「無法連接伺服器,請檢查網絡。(連線逾時)」) instead of 「正在搜尋路線…」 forever.
+- 重試 repeats the same search instead of reloading the app (keeps the chosen start, destination and time).
+- A 預先計劃 time that has gone stale (or a past date) moves forward automatically.
+- If iPhone refuses to save data (full storage / private browsing), the app keeps working.
+- Safety net: an unexpected error shows 「出了點問題 — 按此重新開始」 instead of a frozen screen.
+- 還原預設 confirmation says it also resets the home address and saved places.
+
 ### v1.3.3 — 2026-11-01
 - ↺ 重新開始 button on the main screen (next to ⚙️ 設定): back to 家 / 現在 / no destination. Saved places are not affected.
 - ⏰ 提醒我 and the 出門提醒 setting are hidden for now (code kept; FEATURE_REMINDER in app.js turns them back on).

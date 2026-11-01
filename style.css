@@ -154,3 +154,4 @@ button.choice .en { font-size: 17px; }
 .toggle button .plan-sum { display: block; font-size: 17px; font-weight: 600; margin-top: 2px; }
 .plan-card { text-align: center; font-size: 22px; font-weight: 700; color: var(--primary); }
 .toggle button:disabled { opacity: .4; }
+button.oops { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 10; padding: 16px; border-radius: 14px; background: #b3261e; color: #fff; font-size: 22px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,.25); }

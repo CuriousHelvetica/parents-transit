@@ -13,7 +13,11 @@ function loadSettings() {
   } catch (e) { /* fall through to defaults */ }
   return { home: { ...DEFAULT_HOME }, places: DEFAULT_PLACES.map((p) => ({ ...p })), remindBefore: 10 };
 }
-function saveSettings() { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); }
+// Saving can fail (full storage, private browsing): the app keeps working, just without saving.
+function storeSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* not saved this time */ }
+}
+function saveSettings() { storeSet(STORE_KEY, JSON.stringify(settings)); }
 
 let settings = loadSettings();
 // when: { mode: 'now' } or { mode: 'later', date: 'YYYY-MM-DD', time: 'HH:MM', arrive: bool }
@@ -50,7 +54,7 @@ function dayPart(h) {
 function fmt12(h, mm) {
   return `${dayPart(h)} ${h % 12 || 12}:${mm}`;
 }
-// '09:30' (from the time picker) -> '上午 9:30'
+// '09:30' (from the time picker) -> '早上 9:30'
 function fmtHHMM(hhmm) {
   const [h, mm] = hhmm.split(':');
   return fmt12(+h, mm);
@@ -176,9 +180,23 @@ function noticesOf(leg) {
 }
 
 // ---------- API (through the Cloudflare Worker) ----------
+// Every request gives up after 20 seconds, so a weak connection shows 「無法連接」 + 重試
+// instead of 「正在搜尋路線…」 forever.
+const FETCH_TIMEOUT_MS = 20000;
+async function fetchWithTimeout(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { signal: ctrl.signal });
+  } catch (e) {
+    throw new Error(e.name === 'AbortError' ? '連線逾時' : e.message);
+  } finally {
+    clearTimeout(t);
+  }
+}
 async function api(endpoint, params) {
   const q = new URLSearchParams({ outputFormat: 'rapidJSON', coordOutputFormat: 'EPSG:4326', version: '10.2.1.42', ...params });
-  const res = await fetch(`${WORKER_URL}/tp/${endpoint}?${q}`);
+  const res = await fetchWithTimeout(`${WORKER_URL}/tp/${endpoint}?${q}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -313,7 +331,7 @@ function translate(text) {
   if (translations[text]) return Promise.resolve(translations[text]);
   if (!pendingTr[text]) {
     const { text: masked, places } = protectPlaces(text);
-    pendingTr[text] = fetch(`${WORKER_URL}/translate?${new URLSearchParams({ text: masked })}`)
+    pendingTr[text] = fetchWithTimeout(`${WORKER_URL}/translate?${new URLSearchParams({ text: masked })}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const zh = d && d.zh ? restorePlaces(d.zh, places) : null;
@@ -321,7 +339,7 @@ function translate(text) {
           translations[text] = zh;
           const keys = Object.keys(translations);
           if (keys.length > 150) keys.slice(0, keys.length - 150).forEach((k) => delete translations[k]);
-          localStorage.setItem(TR_KEY, JSON.stringify(translations));
+          storeSet(TR_KEY, JSON.stringify(translations));
         }
         return zh || null;
       })
@@ -383,7 +401,7 @@ async function lookupTfnsw(lat, lon) {
 }
 async function lookupOsm(lat, lon) {
   const q = new URLSearchParams({ format: 'jsonv2', lat, lon, zoom: '18', addressdetails: '1', 'accept-language': 'en' });
-  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${q}`);
+  const res = await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?${q}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const a = (await res.json()).address || {};
   const suburb = a.suburb || a.city_district || a.town || a.village || a.city || '';
@@ -517,6 +535,7 @@ function showPicker(kind) {
 function showHome() {
   clearTimers();
   state.screen = 'home';
+  if (state.when.mode === 'later') state.when = clampPlan({ ...state.when });   // a plan that has gone stale moves forward
   const now = new Date();
   const w = state.when;
   render(`
@@ -544,6 +563,7 @@ function showHome() {
   $app.querySelectorAll('[data-row]').forEach((b) => b.onclick = () => showPicker(b.dataset.row));
   $app.querySelector('[data-search-trip]').onclick = () => {
     if (!state.to) return showPicker('to');
+    if (state.when.mode === 'later') state.when = clampPlan({ ...state.when });
     showTrips(asPlace(state.from), asPlace(state.to), { ...state.when }, { oneOff: !!state.to.searched });
   };
   $app.querySelector('[data-when="now"]').onclick = () => { state.when = { mode: 'now' }; showHome(); };
@@ -580,6 +600,7 @@ function earliestToday() {
 }
 // Never plan a time that has already passed today.
 function clampPlan(draft) {
+  if (draft.date < sydneyDate(0)) draft.date = sydneyDate(0);   // a date in the past -> today
   if (draft.date !== sydneyDate(0)) return draft;
   const e = earliestToday();
   if (!e) { draft.date = sydneyDate(1); return draft; }
@@ -669,6 +690,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
       b.parentElement.outerHTML = '<div class="sub ontime">✓ 已加到常去地點</div>';
     };
   };
+  const retry = () => showTrips(originPlace, destPlace, when, opts);
   render(header + `<div class="msg">正在搜尋路線…</div>`);
   $app.querySelector('[data-back]').onclick = showHome;
   wireSave();
@@ -678,14 +700,16 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     origin = originPlace === 'here' ? await currentPosition() : await resolvePlace(originPlace);
     dest = await resolvePlace(destPlace);
   } catch (e) {
-    return showError(header, e.message);
+    // Our own messages (place not found, no location) are shown as they are; network problems get a clear sentence.
+    const ours = /^(找不到|無法取得|這部電話)/.test(e.message);
+    return showError(header, ours ? e.message : `無法連接伺服器,請檢查網絡。(${e.message})`, '', retry);
   }
 
   let journeys = null;
   const draw = () => {
     if (state.screen !== 'trips' || !journeys) return;
     const uber = when.mode === 'now' ? uberBlock(destPlace, journeys) : '';
-    if (!journeys.length) return showError(header, '找不到路線。請改一下時間,或稍後再試。', uber);
+    if (!journeys.length) return showError(header, '找不到路線。請改一下時間,或稍後再試。', uber, retry);
     const sort = settings.sort || 'changes';
     const sorted = sortJourneys(journeys, sort, when);
     render(header + `<div class="toggle sort">
@@ -708,7 +732,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
       journeys = (await planTrip(origin, dest, when)).filter((j) => minutesUntil(depTime(j.legs[0].origin)) >= -1);
       draw();
     } catch (e) {
-      if (!journeys) showError(header, '無法連接伺服器,請檢查網絡。(' + e.message + ')');
+      if (!journeys && state.screen === 'trips') showError(header, '無法連接伺服器,請檢查網絡。(' + e.message + ')', '', retry);
     }
   };
   await load();
@@ -757,11 +781,12 @@ function uberBlock(destPlace, journeys) {
     <span class="small">會打開 Uber app,起點用你現在的位置,目的地已經填好。按確認才會叫車。</span></a>`;
 }
 
-function showError(header, text, extra = '') {
+// retry: repeats the same search (keeps the chosen start, destination and time)
+function showError(header, text, extra = '', retry = null) {
   render(header + `<div class="err">${esc(text)}</div>
     <div class="bar"><button class="btn primary" data-retry>重試</button></div>${extra}`);
   $app.querySelector('[data-back]').onclick = showHome;
-  $app.querySelector('[data-retry]').onclick = () => location.reload();
+  $app.querySelector('[data-retry]').onclick = () => (retry ? retry() : location.reload());
 }
 
 function leaveText(leave) {
@@ -804,7 +829,6 @@ function journeyCard(j, i) {
   </button>`;
 }
 
-// Turn the journey into plain steps, each with screen text and spoken text.
 // Stops a ride passes through, from the trip data: [{ name, coord, time }]
 function rideStops(leg) {
   return (Array.isArray(leg.stopSequence) ? leg.stopSequence : []).map((st) => ({
@@ -840,6 +864,7 @@ function mapLink(stop) {
   return `https://maps.apple.com/?${q}`;
 }
 
+// Turn the journey into plain steps, each with screen text and spoken text.
 function journeySteps(j) {
   const steps = [];
   j.legs.forEach((leg, i) => {
@@ -961,8 +986,6 @@ function metres(a, b) {   // a, b = [lat, lon]
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-// Highest stop index the bus has reached or gone past, given the current position.
-// accuracy = GPS accuracy in metres: the "near the stop" circle grows when GPS is less precise.
 // Which stops could the bus have reached by now? Each stop has its expected (live, if available) time;
 // stops due more than EARLY_MINUTES from now are not considered, so a winding route that passes near a
 // later stop can't jump ahead, but a long GPS gap still catches up fully. Without times: LOOK_AHEAD stops.
@@ -1156,7 +1179,7 @@ function showSettings() {
     saveSettings(); showSettings();
   });
   $app.querySelector('[data-reset]').onclick = () => {
-    if (confirm('還原所有設定?')) { localStorage.removeItem(STORE_KEY); settings = loadSettings(); showSettings(); }
+    if (confirm('還原所有設定?住址和常去地點都會還原成預設。')) { localStorage.removeItem(STORE_KEY); settings = loadSettings(); showSettings(); }
   };
 }
 
@@ -1260,5 +1283,19 @@ function showAddPlace(isHome) {
   input.onkeydown = (e) => { if (e.key === 'Enter') go(); };
   input.focus();
 }
+
+// Safety net: if something unexpected goes wrong, offer a clear way back instead of a frozen screen.
+function showOops() {
+  if (document.getElementById('oops')) return;
+  const bar = document.createElement('button');
+  bar.id = 'oops';
+  bar.className = 'oops';
+  bar.textContent = '出了點問題 — 按此重新開始';
+  bar.onclick = () => location.reload();
+  document.body.appendChild(bar);
+}
+window.addEventListener('error', showOops);
+window.addEventListener('unhandledrejection', showOops);
+
 
 showHome();
