@@ -155,3 +155,7 @@ button.choice .en { font-size: 17px; }
 .plan-card { text-align: center; font-size: 22px; font-weight: 700; color: var(--primary); }
 .toggle button:disabled { opacity: .4; }
 button.oops { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 10; padding: 16px; border-radius: 14px; background: #b3261e; color: #fff; font-size: 22px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+/* Main screen: title area in a card; the three questions numbered 1 2 3 */
+.hdr { background: #fff; border-radius: 18px; padding: 12px 14px; margin: 4px 0 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.hdr h1.title { margin-top: 2px; }
+h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--slate); color: #fff; font-size: 18px; margin-right: 8px; vertical-align: 2px; }

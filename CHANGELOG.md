@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.3.5 — 2026-11-02
+- Main screen: title, time and 📍 location in a white card, and the three questions numbered ① 從哪裡出發? ② 甚麼時候? ③ 去哪裡?, so the header stands apart and the steps read in order.
+
 ### v1.3.4 — 2026-11-01
 Reliability review:
 - Network requests give up after 20 seconds (「無法連接伺服器,請檢查網絡。(連線逾時)」) instead of 「正在搜尋路線…」 forever.

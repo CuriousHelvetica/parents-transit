@@ -539,20 +539,22 @@ function showHome() {
   const now = new Date();
   const w = state.when;
   render(`
-    <div class="head">
-      <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
-      <button class="herebox" id="here" aria-label="你在"></button>
+    <div class="hdr">
+      <div class="head">
+        <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
+        <button class="herebox" id="here" aria-label="你在"></button>
+      </div>
+      <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
     </div>
-    <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
-    <h2>從哪裡出發?</h2>
+    <h2><span class="num">1</span>從哪裡出發?</h2>
     <button class="choice" data-row="from">${choiceLabel(state.from)}<span class="chev">›</span></button>
-    <h2>甚麼時候?</h2>
+    <h2><span class="num">2</span>甚麼時候?</h2>
     <div class="toggle">
       <button data-when="now" class="${w.mode === 'now' ? 'on' : ''}">⏱️ 現在</button>
       <button data-when="later" class="${w.mode === 'later' ? 'on' : ''}">📅 預先計劃${
         w.mode === 'later' ? `<span class="plan-sum">${esc(planShort(w))}</span>` : ''}</button>
     </div>
-    <h2>去哪裡?</h2>
+    <h2><span class="num">3</span>去哪裡?</h2>
     <button class="choice ${state.to ? '' : 'empty'}" data-row="to">${choiceLabel(state.to, '請選擇目的地')}<span class="chev">›</span></button>
     <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
     <div class="bar">
