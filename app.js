@@ -92,7 +92,7 @@ function streetOf(name) {
 }
 
 // Transport for NSW product classes. Anything that is not public transport or walking
-// (e.g. cycling, taxi, car) is marked `other` and those trips are hidden.
+// (e.g. cycling, taxi, car) is marked `other` and those trips are never shown.
 function modeOf(leg) {
   const t = leg.transportation;
   if (!t || !t.product) return { key: 'walk', zh: '步行', icon: '🚶', walk: true };
@@ -207,9 +207,8 @@ async function planTrip(origin, dest, when) {
   });
   const all = (data.journeys || []).filter((j) => j.legs && j.legs.length);
   if (DEBUG) return all;
-  // Only public transport + walking. Keep the others only if nothing else was found.
-  const transit = all.filter((j) => !j.legs.some((l) => modeOf(l).other));
-  return transit.length ? transit : all;
+  // Only public transport + walking: never cycling, driving or taxi.
+  return all.filter((j) => !j.legs.some((l) => modeOf(l).other));
 }
 
 // Notice translation (English -> Traditional Chinese), remembered on the phone.
