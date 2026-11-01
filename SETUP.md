@@ -52,7 +52,7 @@ Edit [`config.js`](config.js) in this repository and replace `https://REPLACE-ME
 ### Add the icon to the home screen
 1. Open **Safari** (it must be Safari) and go to `https://curioushelvetica.github.io/parents-transit/`.
 2. Tap the **Share** button (square with an arrow) → **Add to Home Screen** → name it `爸媽出行` → **Add**.
-3. From now on, open it from the blue train icon.
+3. From now on, open it from the blue 「爸媽」 icon.
 
 ### Set their real home address
 The default "home" is Rhodes Station. For accurate "leave home at…" times, set their real address:
