@@ -2,7 +2,10 @@
 
 The version is shown at the bottom of **⚙️ 設定** (e.g. `版本 v1.0 · 2026-11-01`). If a phone shows an older version than the latest below, close the app fully (swipe it away) and open it again.
 
-## What the app does (v1.0)
+## What the app does
+
+**Main screen**
+- 📍 你在: current suburb and street (tap to update).
 
 **Planning a trip**
 - Start from 🏠 家 (saved home address) or 📍 現在位置 (current location).
@@ -36,6 +39,9 @@ The version is shown at the bottom of **⚙️ 設定** (e.g. `版本 v1.0 · 20
 ### v1.1 — YYYY-MM-DD
 - What changed
 -->
+
+### v1.1 — 2026-11-01
+- Main screen: 📍 你在 shows the current suburb (Chinese + English) and street, top right. Updated when the main screen opens (at most every 2 minutes) and when tapped; suburb only when GPS is imprecise; nothing shown if location is unavailable. Address lookup via Transport for NSW, OpenStreetMap as fallback.
 
 ### v1.0 — 2026-11-01
 First complete version, built and refined over 31 Oct – 1 Nov 2026. Highlights in order:

@@ -355,6 +355,70 @@ function whenSummary(when) {
   return `${dayLabel(when.date)} ${fmtHHMM(when.time)} ${when.arrive ? '前到達' : '出發'}`;
 }
 
+// ---------- 📍 你在: current suburb + street on the main screen ----------
+// Looked up when the main screen opens (at most every 2 minutes) and when tapped. No continuous tracking.
+// Address lookup: Transport for NSW first (through our Worker), OpenStreetMap as fallback.
+const HERE_REFRESH_MS = 2 * 60000;
+const HERE_STREET_ACCURACY = 100;   // metres; less precise than this -> suburb only
+let here = { info: null, at: 0, busy: false };
+
+function cleanStreet(st) { return String(st || '').replace(/^[\d\-\/]+[A-Za-z]?\s+/, '').trim(); }
+async function lookupTfnsw(lat, lon) {
+  const data = await api('stop_finder', { type_sf: 'coord', name_sf: `${lon}:${lat}:EPSG:4326`, TfNSWSF: 'true' });
+  const loc = (data.locations || []).find((l) => ['singlehouse', 'street', 'address'].includes(l.type));
+  if (!loc) return null;
+  const parts = String(loc.name || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const suburb = (loc.parent && loc.parent.name) || (parts.length > 1 ? parts[parts.length - 1] : '');
+  let street = cleanStreet(loc.streetName || parts[0]);
+  if (street === suburb) street = '';
+  return suburb ? { suburb, street, source: 'tfnsw', raw: loc.name } : null;
+}
+async function lookupOsm(lat, lon) {
+  const q = new URLSearchParams({ format: 'jsonv2', lat, lon, zoom: '18', addressdetails: '1', 'accept-language': 'en' });
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${q}`);
+  if (!res.ok) return null;
+  const a = (await res.json()).address || {};
+  const suburb = a.suburb || a.city_district || a.town || a.village || a.city || '';
+  return suburb ? { suburb, street: a.road || a.pedestrian || '', source: 'osm' } : null;
+}
+function hereHtml() {
+  if (here.busy && !here.info) return '<span class="small">📍 更新中…</span>';
+  if (!here.info) return '';
+  const { suburb, street, source, raw } = here.info;
+  const zh = ZH_NAMES[suburb];
+  return `<span class="small">📍 你在${here.busy ? ' (更新中…)' : ''}</span>
+    <b>${zh ? `${esc(zh)} <span class="en">${esc(suburb)}</span>` : esc(suburb)}</b>
+    ${street ? `<span class="small">${esc(street)}</span>` : ''}
+    ${DEBUG ? `<span class="small">[debug] ${esc(source)} ${esc(raw || '')}</span>` : ''}`;
+}
+function updateHereBox() {
+  const el = $app.querySelector('#here');
+  if (!el) return;
+  el.innerHTML = hereHtml();
+  el.onclick = () => refreshHere(true);
+}
+async function refreshHere(force) {
+  if (here.busy || (!force && Date.now() - here.at < HERE_REFRESH_MS) || !navigator.geolocation) return;
+  here.busy = true;
+  updateHereBox();
+  try {
+    const pos = await new Promise((ok, fail) => navigator.geolocation.getCurrentPosition(ok, fail,
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }));
+    const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+    let place = await lookupTfnsw(lat, lon).catch(() => null);
+    if (!place) place = await lookupOsm(lat, lon).catch(() => null);
+    here.info = place ? { ...place, street: accuracy <= HERE_STREET_ACCURACY ? place.street : '' } : null;
+  } catch (e) {
+    here.info = null;   // no permission or no position: show nothing rather than a wrong place
+  }
+  here.at = Date.now();
+  here.busy = false;
+  updateHereBox();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.screen === 'home') refreshHere(false);
+});
+
 function showHome() {
   clearTimers();
   state.screen = 'home';
@@ -384,7 +448,10 @@ function showHome() {
     <div class="bar"><input type="time" id="time" value="${w.time}"></div>
     <div class="sub" id="whenSummary">${esc(whenSummary(w))}</div>`;
   render(`
-    <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
+    <div class="head">
+      <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
+      <button class="here" id="here" aria-label="現在位置"></button>
+    </div>
     <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
     <h2>從哪裡出發?</h2>
     <div class="toggle">
@@ -430,6 +497,8 @@ function showHome() {
   });
   $app.querySelector('[data-other]').onclick = showSearchTrip;
   $app.querySelector('[data-settings]').onclick = showSettings;
+  updateHereBox();
+  refreshHere(false);
 }
 
 // opts.oneOff: a place found with 🔍 其他地點 (not one of the saved buttons)

@@ -65,6 +65,11 @@ Their home address is stored **only on their phone**, not on GitHub.
 The first time they tap **📍 現在位置** then a destination, iPhone will ask for location → tap **Allow**.
 If they tapped "Don't Allow" by mistake: **Settings → Privacy & Security → Location Services → Safari Websites → While Using the App**.
 
+
+**To stop iPhone asking for location repeatedly** (the app now uses location when it opens, to show 📍 你在): turn on
+- **Settings → Privacy & Security → Location Services → Safari Websites → While Using the App**, and
+- **Settings → Apps → Safari → Location → Allow** (on some iOS versions: Safari → Settings for Websites → Location).
+If it still asks every time the app opens, tell Claude: the automatic 📍 你在 can be changed to tap-only.
 ### Cantonese voice (for 🔊 朗讀)
 1. In the app: **⚙️ 設定** → **🔊 試聽廣東話**. If it speaks Cantonese, you're done.
 2. If it sounds like Mandarin or English, on the iPhone go to **Settings → Accessibility → Spoken Content → Voices → Chinese → Chinese (Hong Kong)** and download a voice (e.g. Sin-ji). Then try again.
