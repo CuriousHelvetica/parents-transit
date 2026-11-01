@@ -91,18 +91,29 @@ function streetOf(name) {
   return part && !/Platform|Stand|Wharf/i.test(part) ? part.trim() : '';
 }
 
-// Transport for NSW product classes
+// Transport for NSW product classes. Anything that is not public transport or walking
+// (e.g. cycling, taxi, car) is marked `other` and those trips are hidden.
 function modeOf(leg) {
-  const c = leg.transportation && leg.transportation.product ? leg.transportation.product.class : 100;
-  switch (c) {
+  const t = leg.transportation;
+  if (!t || !t.product) return { key: 'walk', zh: '步行', icon: '🚶', walk: true };
+  switch (t.product.class) {
     case 1: return { key: 'train', zh: '火車', icon: '🚆' };
     case 2: return { key: 'metro', zh: '地鐵', icon: '🚇' };
     case 4: return { key: 'lightrail', zh: '輕鐵', icon: '🚊' };
     case 5: case 11: return { key: 'bus', zh: '巴士', icon: '🚌' };
     case 7: return { key: 'coach', zh: '長途巴士', icon: '🚌' };
     case 9: return { key: 'ferry', zh: '渡輪', icon: '⛴️' };
-    default: return { key: 'walk', zh: '步行', icon: '🚶', walk: true };
+    case 99: case 100: return { key: 'walk', zh: '步行', icon: '🚶', walk: true };
+    case 107: return { key: 'other', zh: '單車', icon: '🚲', other: true };
+    default: return { key: 'other', zh: t.product.name || '其他交通', icon: '❓', other: true };
   }
+}
+// Open the app with ?debug=1 to see hidden trips and each leg's raw transport type.
+const DEBUG = new URLSearchParams(location.search).has('debug');
+function debugTag(leg) {
+  if (!DEBUG) return '';
+  const p = (leg.transportation && leg.transportation.product) || {};
+  return `<div class="small">[debug] class ${esc(p.class)} · ${esc(p.name || '')} · ${esc((leg.transportation || {}).name || '')}</div>`;
 }
 function lineName(leg) {
   const t = leg.transportation || {};
@@ -191,10 +202,14 @@ async function planTrip(origin, dest, when) {
     itdTime: time,
     type_origin: origin.type, name_origin: origin.name,
     type_destination: dest.type, name_destination: dest.name,
-    calcNumberOfTrips: '5',
+    calcNumberOfTrips: '8',
     TfNSWTR: 'true',
   });
-  return (data.journeys || []).filter((j) => j.legs && j.legs.length);
+  const all = (data.journeys || []).filter((j) => j.legs && j.legs.length);
+  if (DEBUG) return all;
+  // Only public transport + walking. Keep the others only if nothing else was found.
+  const transit = all.filter((j) => !j.legs.some((l) => modeOf(l).other));
+  return transit.length ? transit : all;
 }
 
 // Notice translation (English -> Traditional Chinese), remembered on the phone.
@@ -423,6 +438,7 @@ function journeySteps(j) {
       steps.push({
         icon: m.icon,
         what: `步行 ${mins} 分鐘`,
+        debug: debugTag(leg),
         detail: i === j.legs.length - 1 ? '步行到目的地' : `步行到 ${placeLabel(leg.destination.name)}`,
         say: `步行 ${mins} 分鐘,到${to}。`,
       });
@@ -437,6 +453,7 @@ function journeySteps(j) {
     const notices = noticesOf(leg);
     steps.push({
       icon: m.icon,
+      debug: debugTag(leg),
       what: `${fmtTime(dep)} 乘搭 <span class="badge m-${m.key}">${esc(line)}</span> ${m.zh}` +
         (d > 0 ? ` <span class="late">延誤 ${d} 分鐘</span>` : ''),
       detail: `在 ${placeLabel(leg.origin.name)} 上車` +
@@ -482,7 +499,7 @@ function showJourney(j, goBack) {
         <button class="btn" data-remind>⏰ 提醒我</button>
       </div>
       <div class="card">${steps.map((s) => `<div class="step"><div class="icon">${s.icon}</div>
-        <div><div class="what">${s.what}</div><div class="detail">${s.detail}</div>
+        <div><div class="what">${s.what}</div><div class="detail">${s.detail}</div>${s.debug || ''}
         ${(s.notices || []).map(noticeHtml).join('')}</div></div>`).join('')}
         <div class="step"><div class="icon">🏁</div><div class="what">${fmtTime(arrive)} 到達</div></div>
       </div>`, keepScroll);

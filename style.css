@@ -56,6 +56,7 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 .m-lightrail { background: #ee343f; }
 .m-coach { background: #742283; }
 .m-walk { background: #777; }
+.m-other { background: #555; }
 
 .step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e3e7ec; }
 .step:last-child { border-bottom: none; }
