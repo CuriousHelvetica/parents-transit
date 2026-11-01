@@ -709,7 +709,10 @@ function showSettings() {
 // Chinese input matches the station names this app knows; anything else is searched in English.
 function localChineseMatches(text) {
   return Object.entries(ZH_NAMES).filter(([, zh]) => zh.includes(text) || text.includes(zh.split(' ')[0]))
-    .map(([en, zh]) => ({ zh: withStation(zh, true), en, query: `${en} Station` }));
+    .map(([en, zh]) => {
+      const train = !NOT_TRAIN_STATIONS.includes(en);
+      return { zh: withStation(zh, train), en, query: train ? `${en} Station` : en };
+    });
 }
 function showSearchTrip() {
   clearTimers();

@@ -36,7 +36,16 @@ const ZH_NAMES = {
   'Revesby': '利維斯比',
   'Cabramatta': '卡市 (越南城)',
   'Gordon': '哥頓',
+  'Eastwood': '伊士活',
+  'Campsie': '金時',
+  'Kogarah': '高嘉華',
+  'Carlingford': '卡靈福',
+  'Chinatown': '唐人街',
 };
+
+// Places in ZH_NAMES that are not train stations (light rail stops etc.):
+// searched by plain name, and shown without 站.
+const NOT_TRAIN_STATIONS = ['Chinatown', 'Carlingford'];
 
 // The places on the main screen the first time the app opens (editable in 設定).
 const DEFAULT_HOME = { zh: '家', en: 'Home', query: 'Rhodes Station' };
