@@ -10,9 +10,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - 📍 你在: current suburb and street (tap to update).
 
 **Planning a trip**
-- Start from 🏠 家 (saved home address) or 📍 現在位置 (current location).
+- Three questions, then 🔍 搜尋路線: 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點), 甚麼時候?, 去哪裡? (回家, any saved station, or 🔍 其他地點).
 - Leave ⏱️ 現在 (now) or 📅 預先計劃 (plan ahead: today / tomorrow / day after / any date; leave at or arrive by a time).
-- 38 destination buttons (Chinese + English names), plus 🔍 其他地點 to search any station, address or place (English, or Chinese for known stations). Searched places can be saved with ⭐ 加到常去地點.
+- 38 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place (English, or Chinese for known stations). A searched destination can be saved with ⭐ 加到常去地點.
 - Only public transport and walking — never cycling, driving or taxi legs.
 
 **Trip list**
@@ -41,6 +41,11 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.3 — 2026-11-01
+- Simpler main screen: three questions, then search. 從哪裡出發? and 去哪裡? are one line each; tapping opens a full list (家 / 現在位置 or 回家, the saved places in 設定 order, 🔍 其他地點 at the bottom of both). Then 🔍 搜尋路線.
+- Any saved station (or searched place) can now be the starting point, not only 家 / 現在位置.
+- The starting point always resets to 家 when the app opens; a place can't be both start and destination.
 
 ### v1.2.5 — 2026-11-01
 - Trip list heading shows English under the Chinese, e.g. 「家 → 寶活站」 / Home → Burwood.

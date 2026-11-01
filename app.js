@@ -15,7 +15,8 @@ function saveSettings() { localStorage.setItem(STORE_KEY, JSON.stringify(setting
 
 let settings = loadSettings();
 // when: { mode: 'now' } or { mode: 'later', date: 'YYYY-MM-DD', time: 'HH:MM', arrive: bool }
-let state = { from: 'home', screen: 'home', when: { mode: 'now' } };
+// from: 'home' | 'here' | place;  to: null | 'home' | place.  The app always opens with from = 家.
+let state = { from: 'home', to: null, screen: 'home', when: { mode: 'now' } };
 let timers = [];
 
 // ---------- Helpers ----------
@@ -457,17 +458,60 @@ function timeFromPicker(tp) {
   return `${String(h).padStart(2, '0')}:${String(tp.querySelector('[data-min]').value).padStart(2, '0')}`;
 }
 
+// ---------- Choosing 從哪裡出發 / 去哪裡 ----------
+const placeKey = (x) => (x === 'home' || x === 'here' ? x : x && (x.query || x.en));
+const samePlace = (a, b) => !!a && !!b && placeKey(a) === placeKey(b);
+const asPlace = (x) => (x === 'home' ? settings.home : x);   // 'here' stays 'here'
+function choiceLabel(x, empty = '') {
+  if (!x) return `<span class="placeholder">${esc(empty)}</span>`;
+  if (x === 'home') return '<span>🏠 家 <span class="en">Home</span></span>';
+  if (x === 'here') return '<span>📍 現在位置 <span class="en">Current location</span></span>';
+  return `<span>${esc(x.zh || x.en)} <span class="en">${esc(x.zh ? x.en : '')}</span></span>`;
+}
+function setChoice(kind, value) {
+  if (kind === 'from') {
+    state.from = value;
+    if (samePlace(state.to, value)) state.to = null;   // can't go from a place to itself
+  } else {
+    state.to = value;
+  }
+  showHome();
+}
+// Full-screen list: 家 / 現在位置 (start) or 回家 (destination), the saved places in 設定 order,
+// and 🔍 其他地點 at the bottom of both lists.
+function showPicker(kind) {
+  clearTimers();
+  state.screen = 'pick';
+  const isFrom = kind === 'from';
+  const items = [];
+  if (isFrom) {
+    items.push({ v: 'home', html: '🏠 家<span class="en">Home</span>', cls: 'home' });
+    items.push({ v: 'here', html: '📍 現在位置<span class="en">Current location</span>', cls: 'here' });
+  } else if (state.from !== 'home') {
+    items.push({ v: 'home', html: '🏠 回家<span class="en">Home</span>', cls: 'home' });
+  }
+  settings.places.forEach((pl, i) => {
+    if (!isFrom && samePlace(pl, state.from)) return;
+    items.push({ v: i, html: `${esc(pl.zh || pl.en)}<span class="en">${esc(pl.zh ? pl.en : '')}</span>` });
+  });
+  render(`<button class="back" data-back>← 返回</button>
+    <h1>${isFrom ? '從哪裡出發?' : '去哪裡?'}</h1>
+    <div class="grid picklist">${items.map((it, k) =>
+      `<button class="place ${it.cls || ''}" data-pick="${k}">${it.html}</button>`).join('')}</div>
+    <div class="bar"><button class="btn other" data-other>🔍 其他地點<span class="en">Other places</span></button></div>`);
+  $app.querySelector('[data-back]').onclick = showHome;
+  $app.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => {
+    const v = items[+b.dataset.pick].v;
+    setChoice(kind, typeof v === 'number' ? settings.places[v] : v);
+  });
+  $app.querySelector('[data-other]').onclick = () => showSearchPlace(kind);
+}
+
 function showHome() {
   clearTimers();
   state.screen = 'home';
   const now = new Date();
-  const fromHome = state.from === 'home';
   const w = state.when;
-  let buttons = settings.places.map((pl, i) =>
-    `<button class="place" data-go="${i}">${esc(pl.zh || pl.en)}<span class="en">${esc(pl.en || '')}</span></button>`).join('');
-  if (!fromHome) {
-    buttons = `<button class="place home" data-go="home">🏠 回家<span class="en">Home</span></button>` + buttons;
-  }
   const dayChips = [0, 1, 2].map((o) => {
     const ymd = sydneyDate(o);
     const [, m, d] = ymd.split('-').map(Number);
@@ -492,10 +536,7 @@ function showHome() {
     </div>
     <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
     <h2>從哪裡出發?</h2>
-    <div class="toggle">
-      <button data-from="home" class="${fromHome ? 'on' : ''}">🏠 家</button>
-      <button data-from="here" class="${fromHome ? '' : 'on'}">📍 現在位置</button>
-    </div>
+    <button class="choice" data-row="from">${choiceLabel(state.from)}<span class="chev">›</span></button>
     <h2>甚麼時候?</h2>
     <div class="toggle">
       <button data-when="now" class="${w.mode === 'now' ? 'on' : ''}">⏱️ 現在</button>
@@ -503,11 +544,15 @@ function showHome() {
     </div>
     ${laterHtml}
     <h2>去哪裡?</h2>
-    <div class="grid">${buttons}</div>
-    <div class="bar"><button class="btn other" data-other>🔍 其他地點<span class="en">Other places</span></button></div>
+    <button class="choice ${state.to ? '' : 'empty'}" data-row="to">${choiceLabel(state.to, '請選擇目的地')}<span class="chev">›</span></button>
+    <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
     <div class="bar"><button class="btn" data-settings>⚙️ 設定</button></div>
   `, true);
-  $app.querySelectorAll('[data-from]').forEach((b) => b.onclick = () => { state.from = b.dataset.from; showHome(); });
+  $app.querySelectorAll('[data-row]').forEach((b) => b.onclick = () => showPicker(b.dataset.row));
+  $app.querySelector('[data-search-trip]').onclick = () => {
+    if (!state.to) return showPicker('to');
+    showTrips(asPlace(state.from), asPlace(state.to), { ...state.when }, { oneOff: !!state.to.searched });
+  };
   $app.querySelectorAll('[data-when]').forEach((b) => b.onclick = () => {
     if (b.dataset.when === 'now') state.when = { mode: 'now' };
     else if (state.when.mode !== 'later') {
@@ -532,11 +577,6 @@ function showHome() {
     state.when.time = timeFromPicker(tp);
     updateSummary();
   });
-  $app.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => {
-    const dest = b.dataset.go === 'home' ? settings.home : settings.places[+b.dataset.go];
-    showTrips(fromHome ? settings.home : 'here', dest, { ...state.when });
-  });
-  $app.querySelector('[data-other]').onclick = showSearchTrip;
   $app.querySelector('[data-settings]').onclick = showSettings;
   updateHereBox();
   refreshHere(false);
@@ -564,7 +604,8 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   const wireSave = () => {
     const b = $app.querySelector('[data-save]');
     if (b) b.onclick = () => {
-      settings.places.push({ ...destPlace });
+      const { searched, ...keep } = destPlace;
+      settings.places.push(keep);
       saveSettings();
       header = headerHtml();
       b.parentElement.outerHTML = '<div class="sub ontime">✓ 已加到常去地點</div>';
@@ -1070,17 +1111,16 @@ function localChineseMatches(text) {
       return { zh: withStation(zh, train), en, query: train ? `${en} Station` : en };
     });
 }
-function showSearchTrip() {
+function showSearchPlace(kind) {
   clearTimers();
   state.screen = 'search';
   render(`<button class="back" data-back>← 返回</button>
-    <h1>去其他地點</h1>
-    <div class="when">${esc(state.from === 'home' ? '由 家' : '由 現在位置')}・${esc(whenSummary(state.when))}</div>
+    <h1>${kind === 'from' ? '從其他地點出發' : '去其他地點'}</h1>
     <div class="small">輸入車站、地址或地點名稱。中文只適用於已知車站 (例如 伊頻),其他請用英文 (例如 Eastwood)。</div>
     <div class="bar"><input type="text" id="q" placeholder="例如 伊頻 / Eastwood" autocomplete="off"></div>
     <div class="bar"><button class="btn primary" data-search>🔍 搜尋</button></div>
     <div id="results"></div>`);
-  $app.querySelector('[data-back]').onclick = showHome;
+  $app.querySelector('[data-back]').onclick = () => showPicker(kind);
   const input = $app.querySelector('#q');
   const go = async () => {
     const box = $app.querySelector('#results');
@@ -1110,8 +1150,8 @@ function showSearchTrip() {
       ${pl.zh ? `${esc(pl.zh)} <span class="en">${esc(pl.en)}</span>` : esc(pl.en)}
       <div class="small">${esc(pl.full || pl.query)}</div></button>`).join('');
     box.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => {
-      const { full, ...dest } = places[+b.dataset.pick];
-      showTrips(state.from === 'home' ? settings.home : 'here', dest, { ...state.when }, { oneOff: true });
+      const { full, ...place } = places[+b.dataset.pick];
+      setChoice(kind, { ...place, searched: true });
     });
   };
   $app.querySelector('[data-search]').onclick = go;

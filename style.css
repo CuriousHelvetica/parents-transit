@@ -143,3 +143,10 @@ button.here .small { font-size: 15px; }
 .timepick select { flex: 1; font: inherit; font-size: 26px; font-weight: 700; padding: 12px 8px; border-radius: 12px; border: 2px solid var(--border); background: #fff; color: inherit; text-align: center; text-align-last: center; -webkit-appearance: none; appearance: none; }
 h1.route { margin-bottom: 0; }
 .route-en { font-size: 20px; color: #666; font-weight: 600; margin-bottom: 6px; }
+button.choice { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 18px 16px; border-radius: 16px; background: #fff; border: 3px solid var(--primary); font-size: 24px; font-weight: 700; text-align: left; }
+button.choice.empty { border-style: dashed; }
+button.choice .placeholder { color: #888; font-weight: 600; }
+button.choice .chev { font-size: 32px; color: var(--primary); line-height: 1; }
+button.choice .en { font-size: 17px; }
+.btn.big { font-size: 26px; padding: 18px; margin-top: 10px; }
+.place.here { background: var(--slate); }
