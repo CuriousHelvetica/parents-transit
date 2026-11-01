@@ -77,6 +77,8 @@ If it still asks every time the app opens, tell Claude: the automatic 📍 你�
 4. Make sure the phone isn't on silent mode if they can't hear it.
 
 ### Reminders (⏰ 提醒我)
+> **Hidden since v1.3.3** — your parents set alarms their own way. The code is kept; set `FEATURE_REMINDER = true` in `app.js` to bring it back.
+
 On a trip's detail page, **⏰ 提醒我** opens a calendar invite. Tap **Add to Calendar**. The iPhone Calendar then alerts them 10 minutes before leaving (change to 5 or 15 in 設定), and again at departure time.
 - Make sure **Settings → Notifications → Calendar** is allowed.
 - This is the part I could not test on a real iPhone. Please try it once yourself.

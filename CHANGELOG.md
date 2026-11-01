@@ -25,14 +25,14 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - Step by step: walk / board (platform or bus stand, direction, number of stops) / get off (🔄 change or 📍 destination) / 🏁 arrive.
 - Service notices translated into Traditional Chinese (Cloudflare Workers AI); station names kept as Chinese + English, other place names and Opal kept in English; English original one tap away.
 - 🔊 朗讀: reads the steps aloud in Cantonese (directions in short English, as on station displays); tap again to stop.
-- ⏰ 提醒我: adds a calendar event with an alarm before leaving time.
+- ⏰ 提醒我 (hidden since v1.3.3): adds a calendar event with an alarm before leaving time.
 - 顯示途經車站: every stop with times; 🔔 on the stop before the one to get off at.
 - Trips leaving now:
   - 🗺️ 地圖指路: Apple Maps walking directions to each stop.
   - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps.
 
 **Settings (⚙️ 設定)**
-- Home address, frequent places (add, delete, reorder), reminder lead time (5 / 10 / 15 min), Cantonese voice test, restore defaults.
+- Home address, frequent places (add, delete, reorder), Cantonese voice test, restore defaults. (Reminder lead time hidden with ⏰ 提醒我.)
 - Everything personal is stored only on the phone.
 
 ## History
@@ -41,6 +41,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.3.3 — 2026-11-01
+- ↺ 重新開始 button on the main screen (next to ⚙️ 設定): back to 家 / 現在 / no destination. Saved places are not affected.
+- ⏰ 提醒我 and the 出門提醒 setting are hidden for now (code kept; FEATURE_REMINDER in app.js turns them back on).
 
 ### v1.3.2 — 2026-11-01
 - 📅 預先計劃: for 今天, only times from the next 5-minute slot onwards (past hours and minutes not offered); other days keep the full list. Switching to 今天 moves an earlier time to the earliest available; 今天 is greyed out when nothing is left today.

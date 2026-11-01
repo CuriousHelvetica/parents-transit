@@ -3,6 +3,8 @@
 // ---------- Storage (everything personal stays on this phone) ----------
 const STORE_KEY = 'parents-transit-v1';
 const TR_KEY = 'parents-transit-translations-v3';
+// ⏰ 提醒我 (calendar reminder) is hidden for now; set to true to bring it back (button + 設定 section).
+const FEATURE_REMINDER = false;
 
 function loadSettings() {
   try {
@@ -534,7 +536,10 @@ function showHome() {
     <h2>去哪裡?</h2>
     <button class="choice ${state.to ? '' : 'empty'}" data-row="to">${choiceLabel(state.to, '請選擇目的地')}<span class="chev">›</span></button>
     <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
-    <div class="bar"><button class="btn" data-settings>⚙️ 設定</button></div>
+    <div class="bar">
+      <button class="btn" data-reset-trip>↺ 重新開始</button>
+      <button class="btn" data-settings>⚙️ 設定</button>
+    </div>
   `, true);
   $app.querySelectorAll('[data-row]').forEach((b) => b.onclick = () => showPicker(b.dataset.row));
   $app.querySelector('[data-search-trip]').onclick = () => {
@@ -544,6 +549,11 @@ function showHome() {
   $app.querySelector('[data-when="now"]').onclick = () => { state.when = { mode: 'now' }; showHome(); };
   $app.querySelector('[data-when="later"]').onclick = () => showPlanPage();
   $app.querySelector('[data-settings]').onclick = showSettings;
+  // ↺ 重新開始: back to the clean state (家, 現在, no destination); saved places are not touched
+  $app.querySelector('[data-reset-trip]').onclick = () => {
+    state.from = 'home'; state.to = null; state.when = { mode: 'now' };
+    showHome();
+  };
   updateHereBox();
   refreshHere(false);
 }
@@ -903,7 +913,7 @@ function showJourney(j, goBack, live) {
       </div>
       <div class="bar">
         <button class="btn" data-say>🔊 朗讀</button>
-        <button class="btn" data-remind>⏰ 提醒我</button>
+        ${FEATURE_REMINDER ? '<button class="btn" data-remind>⏰ 提醒我</button>' : ''}
       </div>
       <div class="card">${steps.map((s) => `<div class="step"><div class="icon">${s.icon}</div>
         <div><div class="what">${s.what}</div><div class="detail">${s.detail}</div>${s.debug || ''}
@@ -925,7 +935,7 @@ function showJourney(j, goBack, live) {
       speak(sayText(), () => showSaying(false));
       showSaying(true);
     };
-    $app.querySelector('[data-remind]').onclick = () => remind(j, steps);
+    if (FEATURE_REMINDER) $app.querySelector('[data-remind]').onclick = () => remind(j, steps);
     $app.querySelectorAll('[data-track]').forEach((b) => b.onclick = () =>
       showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack, live)));
     fillNotices();
@@ -1119,9 +1129,9 @@ function showSettings() {
     <h2>常去地點</h2>
     ${rows || '<div class="small">未有地點</div>'}
     <div class="bar"><button class="btn primary" data-add>➕ 新增地點</button></div>
-    <h2>出門提醒</h2>
+    ${FEATURE_REMINDER ? `<h2>出門提醒</h2>
     <div class="toggle three">${[5, 10, 15].map((n) =>
-      `<button data-before="${n}" class="${settings.remindBefore === n ? 'on' : ''}">提前 ${n} 分鐘</button>`).join('')}</div>
+      `<button data-before="${n}" class="${settings.remindBefore === n ? 'on' : ''}">提前 ${n} 分鐘</button>`).join('')}</div>` : ''}
     <h2>朗讀</h2>
     <div class="bar"><button class="btn" data-testvoice>🔊 試聽廣東話</button></div>
     <div class="small">如果不是廣東話,請參閱設定說明。</div>
