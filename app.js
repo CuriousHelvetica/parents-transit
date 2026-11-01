@@ -786,7 +786,16 @@ function showTracking(leg, goBack) {
   const list = rideStops(leg);
   const target = list.length - 1;
   let passed = 0, watchId = null, wake = null, lastFix = null;
+  // iPhone cancels the screen-on request whenever the app goes to the background; ask again on return.
+  const askScreenOn = () => keepScreenOn().then((w) => {
+    wake = w;
+    if (wake) wake.addEventListener('release', draw);
+    draw();
+  });
+  const onVisible = () => { if (document.visibilityState === 'visible' && (!wake || wake.released)) askScreenOn(); };
+  document.addEventListener('visibilitychange', onVisible);
   const stop = () => {
+    document.removeEventListener('visibilitychange', onVisible);
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     if (wake) wake.release().catch(() => {});
     document.body.classList.remove('alert-bell', 'alert-off');
@@ -804,9 +813,10 @@ function showTracking(leg, goBack) {
       <div class="track-big">${big}</div>
       ${here ? '' : `<div class="track-row">下一站:<b>${placeLabel(next.full || next.name)}</b></div>`}
       <div class="track-row">下車站:<b>${placeLabel(list[target].full || list[target].name)}</b></div>
-      <div class="small">${!lastFix ? '定位中…請保持此畫面開啟'
+      <div class="small">${!lastFix ? '定位中…'
         : lastFix > WORST_USABLE_ACCURACY ? `定位不準 (約 ${Math.round(lastFix)} 米),等待中…`
-        : `定位準確度約 ${Math.round(lastFix)} 米・螢幕會保持開啟`}</div>
+        : `定位準確度約 ${Math.round(lastFix)} 米`}・${wake && !wake.released
+        ? '螢幕會保持開啟' : '請保持此畫面開啟,不要鎖機'}</div>
       <ol class="track-list">${list.map((st, k) => `<li class="${k <= passed ? 'done' : ''} ${k === target ? 'getoff' : ''} ${k === target - 1 ? 'bell' : ''}">
         ${k === target ? '📍 ' : ''}${placeLabel(st.full || st.name)}</li>`).join('')}</ol>`, true);
     $app.querySelector('[data-back]').onclick = () => { stop(); goBack(); };
@@ -822,7 +832,7 @@ function showTracking(leg, goBack) {
     lastFix = null;
     draw();
   }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
-  keepScreenOn().then((w) => { wake = w; });
+  askScreenOn();
   draw();
 }
 
