@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.2.2 — 2026-11-01
+- 🔊 朗讀: same Cantonese voice every time — picks premium > enhanced > standard by a fixed rule, skips Apple's novelty/Eloquence voices, and loads the voice list at start-up.
+
 ### v1.2.1 — 2026-11-01
 - 📍 你在: street now looked up with OpenStreetMap first (nearest road; Transport for NSW returned a nearby address on the next street), Transport for NSW as backup. Credit line 「地址資料 © OpenStreetMap」 in 設定.
 

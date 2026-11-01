@@ -927,9 +927,21 @@ function showTracking(leg, goBack) {
 }
 
 // ---------- Read aloud in Cantonese ----------
+// Same Cantonese voice every time: iPhone may list several Cantonese voices (and loads the list in
+// the background), so pick by a fixed rule — premium > enhanced > standard, then by name — and skip
+// Apple's novelty/Eloquence voices. The list is loaded at start-up so it's ready when 🔊 is tapped.
+let voiceList = [];
+function loadVoices() {
+  const v = speechSynthesis.getVoices();
+  if (v.length) voiceList = v;
+}
 function cantoneseVoice() {
-  const voices = speechSynthesis.getVoices();
-  return voices.find((v) => /zh[-_]HK/i.test(v.lang)) || voices.find((v) => /yue/i.test(v.lang)) || null;
+  if (!voiceList.length) loadVoices();
+  const id = (v) => `${v.voiceURI || ''} ${v.name || ''}`;
+  const rank = (v) => (/premium/i.test(id(v)) ? 0 : /enhanced/i.test(id(v)) ? 1 : 2);
+  return voiceList
+    .filter((v) => /^(zh[-_]HK|yue)/i.test(v.lang) && !/eloquence|speech\.synthesis|novelty/i.test(v.voiceURI || ''))
+    .sort((a, b) => rank(a) - rank(b) || id(a).localeCompare(id(b)))[0] || null;
 }
 // speak(text, onDone): onDone runs once when reading ends or is stopped.
 let speakDone = null;
@@ -952,7 +964,10 @@ function stopSpeaking() {
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   if (speakDone) speakDone();
 }
-if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+if ('speechSynthesis' in window) {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
 
 // ---------- Reminder: a calendar event with an alarm ----------
 function remind(j, steps) {

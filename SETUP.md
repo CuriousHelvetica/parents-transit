@@ -73,7 +73,8 @@ If it still asks every time the app opens, tell Claude: the automatic 📍 你�
 ### Cantonese voice (for 🔊 朗讀)
 1. In the app: **⚙️ 設定** → **🔊 試聽廣東話**. If it speaks Cantonese, you're done.
 2. If it sounds like Mandarin or English, on the iPhone go to **Settings → Accessibility → Spoken Content → Voices → Chinese → Chinese (Hong Kong)** and download a voice (e.g. Sin-ji). Then try again.
-3. Make sure the phone isn't on silent mode if they can't hear it.
+3. For the most natural voice, download an **Enhanced** (or **Premium**) Cantonese voice in the same Voices screen, if one is offered. The app automatically prefers enhanced/premium voices and always uses the same one.
+4. Make sure the phone isn't on silent mode if they can't hear it.
 
 ### Reminders (⏰ 提醒我)
 On a trip's detail page, **⏰ 提醒我** opens a calendar invite. Tap **Add to Calendar**. The iPhone Calendar then alerts them 10 minutes before leaving (change to 5 or 15 in 設定), and again at departure time.
