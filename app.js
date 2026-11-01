@@ -352,7 +352,7 @@ function showHome() {
     <div class="bar"><input type="time" id="time" value="${w.time}"></div>
     <div class="sub">${esc(whenSummary(w))}</div>`;
   render(`
-    <h1>出行 <span class="en">Sydney</span></h1>
+    <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
     <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
     <h2>從哪裡出發?</h2>
     <div class="toggle">

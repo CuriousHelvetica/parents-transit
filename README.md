@@ -1,4 +1,4 @@
-# 出行 — simple Sydney trip planner in Traditional Chinese
+# 爸媽出行 Sydney Trip Planner — simple Sydney trip planner in Traditional Chinese
 
 A home-screen web app for getting around Sydney by train and bus. Big buttons, Traditional Chinese (standard written) with English place names, Cantonese read-aloud, and live Transport for NSW times.
 

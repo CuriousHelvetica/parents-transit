@@ -51,7 +51,7 @@ Edit [`config.js`](config.js) in this repository and replace `https://REPLACE-ME
 
 ### Add the icon to the home screen
 1. Open **Safari** (it must be Safari) and go to `https://curioushelvetica.github.io/parents-transit/`.
-2. Tap the **Share** button (square with an arrow) → **Add to Home Screen** → name it `出行` → **Add**.
+2. Tap the **Share** button (square with an arrow) → **Add to Home Screen** → name it `爸媽出行` → **Add**.
 3. From now on, open it from the blue train icon.
 
 ### Set their real home address
@@ -85,7 +85,7 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
 
 ## How to use (to show your parents)
 
-1. Open **出行**.
+1. Open **爸媽出行**.
 2. Choose where they're starting: **🏠 家** (home) or **📍 現在位置** (where I am now).
 3. Choose when: **⏱️ 現在** (now), or **📅 預先計劃** (plan ahead). For planning ahead, pick 今天 / 明天 / 後天 (today, tomorrow, the day after) or another date. Then choose **出發時間** (leave at) or **到達時間** (arrive by), and set the time.
 4. Tap where they're going. If starting from "where I am now", there's also a green **🏠 回家** (go home) button.
