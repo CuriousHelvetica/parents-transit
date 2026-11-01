@@ -133,3 +133,5 @@ body.alert-bell .track-big { color: #b3261e; }
 body.alert-off { background: var(--sage); }
 body.alert-off main, body.alert-off main * { color: #fff !important; }
 @keyframes flash { from { background: var(--cream); } to { background: #ffb4a2; } }
+.version { margin-top: 28px; text-align: center; font-size: 15px; color: #888; }
+.version a { color: var(--primary); }

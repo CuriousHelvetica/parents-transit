@@ -10,7 +10,7 @@ A home-screen web app for getting around Sydney by train and bus. Big buttons, T
 - **⏰ 提醒我:** adds a calendar event with an alarm before it's time to leave.
 - **⚙️ 設定:** set the home address, and add, remove or reorder places. All of this is stored only on the phone.
 
-**Setup:** see [SETUP.md](SETUP.md).
+**Setup:** see [SETUP.md](SETUP.md). **What changed:** see [CHANGELOG.md](CHANGELOG.md).
 
 ## Files
 | File | What it is |

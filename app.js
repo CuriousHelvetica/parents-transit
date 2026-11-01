@@ -906,7 +906,9 @@ function showSettings() {
     <h2>朗讀</h2>
     <div class="bar"><button class="btn" data-testvoice>🔊 試聽廣東話</button></div>
     <div class="small">如果不是廣東話,請參閱設定說明。</div>
-    <div class="bar"><button class="btn danger" data-reset>還原預設</button></div>`);
+    <div class="bar"><button class="btn danger" data-reset>還原預設</button></div>
+    <div class="version">版本 ${esc(APP_VERSION)} · ${esc(APP_DATE)} ·
+      <a href="${esc(CHANGELOG_URL)}" target="_blank" rel="noopener">更新紀錄</a></div>`);
   $app.querySelector('[data-back]').onclick = showHome;
   $app.querySelector('[data-home]').onclick = () => showAddPlace(true);
   $app.querySelector('[data-add]').onclick = () => showAddPlace(false);
