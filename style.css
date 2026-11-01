@@ -114,3 +114,4 @@ input[type=date] {
 .btn.other .en { color: var(--primary); opacity: .8; }
 h1.title .en { display: block; font-size: 20px; color: #666; font-weight: 600; margin-top: 2px; }
 a.btn.uber { display: flex; flex-direction: column; gap: 4px; margin-top: 22px; text-decoration: none; color: var(--primary); border-color: var(--primary); text-align: center; }
+a.maplink { display: inline-block; margin-top: 8px; padding: 8px 14px; border-radius: 12px; border: 2px solid var(--primary); color: var(--primary); background: #fff; font-weight: 700; text-decoration: none; font-size: 20px; }

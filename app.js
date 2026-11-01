@@ -486,7 +486,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     });
     wireSave();
     $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts)));
+      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts), when.mode === 'now'));
   };
   const load = async () => {
     try {
@@ -591,6 +591,15 @@ function journeyCard(j, i) {
 }
 
 // Turn the journey into plain steps, each with screen text and spoken text.
+// 🗺️ Apple Maps walking directions from where the phone is now to a stop or place.
+// https://maps.apple.com/?daddr=<lat,lon>&dirflg=w  (no start given = "here")
+function mapLink(stop) {
+  const q = new URLSearchParams({ dirflg: 'w' });
+  if (stop && Array.isArray(stop.coord)) q.set('daddr', `${stop.coord[0]},${stop.coord[1]}`); // [lat, lon]
+  else q.set('daddr', `${String((stop && stop.name) || '')}, NSW`);
+  return `https://maps.apple.com/?${q}`;
+}
+
 function journeySteps(j) {
   const steps = [];
   j.legs.forEach((leg, i) => {
@@ -604,6 +613,7 @@ function journeySteps(j) {
         debug: debugTag(leg),
         detail: i === j.legs.length - 1 ? '步行到目的地' : `步行到 ${placeLabel(leg.destination.name)}`,
         say: `步行 ${mins} 分鐘,到${to}。`,
+        map: mapLink(leg.destination),
       });
       return;
     }
@@ -625,6 +635,7 @@ function journeySteps(j) {
         (towards ? `<br>往 ${directionLabel(towards)} 方向` : '') +
         (stops ? `<br>共 ${stops} 個站` : ''),
       notices,
+      map: i === 0 ? mapLink(leg.origin) : '',
       say: `${fmtTime(dep)},在${speakName(leg.origin.name)}` + (plat ? `${plat.zh}` : '') +
         `,乘搭${line}${m.zh}` + (towards ? `,往 ${speakDirection(towards)} 方向` : '') +
         (stops ? `,共${stops}個站` : '') + '。',
@@ -641,7 +652,8 @@ function journeySteps(j) {
   return steps;
 }
 
-function showJourney(j, goBack) {
+// live: trip leaves now, so walking directions from the phone's location make sense
+function showJourney(j, goBack, live) {
   clearTimers();
   state.screen = 'journey';
   const leave = depTime(j.legs[0].origin);
@@ -663,6 +675,7 @@ function showJourney(j, goBack) {
       </div>
       <div class="card">${steps.map((s) => `<div class="step"><div class="icon">${s.icon}</div>
         <div><div class="what">${s.what}</div><div class="detail">${s.detail}</div>${s.debug || ''}
+        ${live && s.map ? `<a class="maplink" href="${esc(s.map)}" target="_blank" rel="noopener">🗺️ 地圖指路</a>` : ''}
         ${(s.notices || []).map(noticeHtml).join('')}</div></div>`).join('')}
         <div class="step"><div class="icon">🏁</div><div class="what">${fmtTime(arrive)} 到達</div></div>
       </div>`, keepScroll);
