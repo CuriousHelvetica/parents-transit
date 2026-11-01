@@ -40,6 +40,9 @@ The version is shown at the bottom of **⚙️ 設定** (e.g. `版本 v1.0 · 20
 - What changed
 -->
 
+### v1.2 — 2026-11-01
+- 📍 你在: when no location could be found, shows a tappable 「📍 按此顯示位置」 instead of a blank space; the ?debug=1 page shows why (permission, timeout, lookup errors).
+
 ### v1.1 — 2026-11-01
 - Main screen: 📍 你在 shows the current suburb (Chinese + English) and street, top right. Updated when the main screen opens (at most every 2 minutes) and when tapped; suburb only when GPS is imprecise; nothing shown if location is unavailable. Address lookup via Transport for NSW, OpenStreetMap as fallback.
 

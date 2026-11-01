@@ -360,7 +360,7 @@ function whenSummary(when) {
 // Address lookup: Transport for NSW first (through our Worker), OpenStreetMap as fallback.
 const HERE_REFRESH_MS = 2 * 60000;
 const HERE_STREET_ACCURACY = 100;   // metres; less precise than this -> suburb only
-let here = { info: null, at: 0, busy: false };
+let here = { info: null, at: 0, busy: false, log: null };
 
 function cleanStreet(st) { return String(st || '').replace(/^[\d\-\/]+[A-Za-z]?\s+/, '').trim(); }
 async function lookupTfnsw(lat, lon) {
@@ -376,20 +376,21 @@ async function lookupTfnsw(lat, lon) {
 async function lookupOsm(lat, lon) {
   const q = new URLSearchParams({ format: 'jsonv2', lat, lon, zoom: '18', addressdetails: '1', 'accept-language': 'en' });
   const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${q}`);
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const a = (await res.json()).address || {};
   const suburb = a.suburb || a.city_district || a.town || a.village || a.city || '';
   return suburb ? { suburb, street: a.road || a.pedestrian || '', source: 'osm' } : null;
 }
 function hereHtml() {
+  const dbg = DEBUG && here.log ? `<span class="small">[debug] ${esc(here.log.join(' · '))}</span>` : '';
   if (here.busy && !here.info) return '<span class="small">📍 更新中…</span>';
-  if (!here.info) return '';
+  if (!here.info) return here.at ? `<span class="small">📍 按此顯示位置</span>${dbg}` : '';
   const { suburb, street, source, raw } = here.info;
   const zh = ZH_NAMES[suburb];
   return `<span class="small">📍 你在${here.busy ? ' (更新中…)' : ''}</span>
     <b>${zh ? `${esc(zh)} <span class="en">${esc(suburb)}</span>` : esc(suburb)}</b>
     ${street ? `<span class="small">${esc(street)}</span>` : ''}
-    ${DEBUG ? `<span class="small">[debug] ${esc(source)} ${esc(raw || '')}</span>` : ''}`;
+    ${DEBUG ? `<span class="small">[debug] ${esc(source)} ${esc(raw || '')}</span>${dbg}` : ''}`;
 }
 function updateHereBox() {
   const el = $app.querySelector('#here');
@@ -405,11 +406,19 @@ async function refreshHere(force) {
     const pos = await new Promise((ok, fail) => navigator.geolocation.getCurrentPosition(ok, fail,
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }));
     const { latitude: lat, longitude: lon, accuracy } = pos.coords;
-    let place = await lookupTfnsw(lat, lon).catch(() => null);
-    if (!place) place = await lookupOsm(lat, lon).catch(() => null);
+    here.log = [`GPS ok, ±${Math.round(accuracy)}m`];
+    let place = await lookupTfnsw(lat, lon).catch((e) => { here.log.push(`tfnsw error: ${e.message}`); return null; });
+    if (!place) {
+      here.log.push('tfnsw: no address');
+      place = await lookupOsm(lat, lon).catch((e) => { here.log.push(`osm error: ${e.message}`); return null; });
+      if (!place) here.log.push('osm: no address');
+    }
     here.info = place ? { ...place, street: accuracy <= HERE_STREET_ACCURACY ? place.street : '' } : null;
   } catch (e) {
-    here.info = null;   // no permission or no position: show nothing rather than a wrong place
+    // no permission or no position: never show a wrong place
+    here.info = null;
+    here.log = [e && e.code === 1 ? 'location permission denied' : e && e.code === 3 ? 'location timed out'
+      : `location error: ${(e && e.message) || e}`];
   }
   here.at = Date.now();
   here.busy = false;
