@@ -786,13 +786,31 @@ function showTracking(leg, goBack) {
   const list = rideStops(leg);
   const target = list.length - 1;
   let passed = 0, watchId = null, wake = null, lastFix = null;
+  function startWatch() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(onPosition, () => { lastFix = null; draw(); },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  }
+  function onPosition(p) {
+    if (state.screen !== 'tracking') return;
+    lastFix = p.coords.accuracy;
+    if (lastFix <= WORST_USABLE_ACCURACY) {
+      passed = stopsPassed(list, [p.coords.latitude, p.coords.longitude], passed, lastFix);
+    }
+    draw();
+  }
   // iPhone cancels the screen-on request whenever the app goes to the background; ask again on return.
   const askScreenOn = () => keepScreenOn().then((w) => {
     wake = w;
     if (wake) wake.addEventListener('release', draw);
     draw();
   });
-  const onVisible = () => { if (document.visibilityState === 'visible' && (!wake || wake.released)) askScreenOn(); };
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!wake || wake.released) askScreenOn();
+    // Back from another app: restart GPS tracking, which delivers a fresh position straight away
+    startWatch();
+  };
   document.addEventListener('visibilitychange', onVisible);
   const stop = () => {
     document.removeEventListener('visibilitychange', onVisible);
@@ -822,16 +840,7 @@ function showTracking(leg, goBack) {
     $app.querySelector('[data-back]').onclick = () => { stop(); goBack(); };
   };
   if (!navigator.geolocation) { alert('這部電話不支援定位'); return goBack(); }
-  watchId = navigator.geolocation.watchPosition((p) => {
-    lastFix = p.coords.accuracy;
-    if (lastFix <= WORST_USABLE_ACCURACY) {
-      passed = stopsPassed(list, [p.coords.latitude, p.coords.longitude], passed, lastFix);
-    }
-    draw();
-  }, () => {
-    lastFix = null;
-    draw();
-  }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  startWatch();
   askScreenOn();
   draw();
 }
