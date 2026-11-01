@@ -42,11 +42,14 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.2.1 — 2026-11-01
+- 📍 你在: street now looked up with OpenStreetMap first (nearest road; Transport for NSW returned a nearby address on the next street), Transport for NSW as backup. Credit line 「地址資料 © OpenStreetMap」 in 設定.
+
 ### v1.2 — 2026-11-01
 - 📍 你在: when no location could be found, shows a tappable 「📍 按此顯示位置」 instead of a blank space; the ?debug=1 page shows why (permission, timeout, lookup errors).
 
 ### v1.1 — 2026-11-01
-- Main screen: 📍 你在 shows the current suburb (Chinese + English) and street, top right. Updated when the main screen opens (at most every 2 minutes) and when tapped; suburb only when GPS is imprecise; nothing shown if location is unavailable. Address lookup via Transport for NSW, OpenStreetMap as fallback.
+- Main screen: 📍 你在 shows the current suburb (Chinese + English) and street, top right. Updated when the main screen opens (at most every 2 minutes) and when tapped; suburb only when GPS is imprecise; nothing shown if location is unavailable. Address lookup via Transport for NSW, OpenStreetMap as fallback (order swapped in v1.2.1).
 
 ### v1.0 — 2026-11-01
 First complete version, built and refined over 31 Oct – 1 Nov 2026. Highlights in order:

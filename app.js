@@ -357,7 +357,8 @@ function whenSummary(when) {
 
 // ---------- 📍 你在: current suburb + street on the main screen ----------
 // Looked up when the main screen opens (at most every 2 minutes) and when tapped. No continuous tracking.
-// Address lookup: Transport for NSW first (through our Worker), OpenStreetMap as fallback.
+// Address lookup: OpenStreetMap (Nominatim) first, Transport for NSW (through our Worker) as fallback.
+// Nominatim policy: max 1 request/s overall, identify the app (the browser sends our address), credit OSM.
 const HERE_REFRESH_MS = 2 * 60000;
 const HERE_STREET_ACCURACY = 100;   // metres; less precise than this -> suburb only
 let here = { info: null, at: 0, busy: false, log: null };
@@ -379,7 +380,8 @@ async function lookupOsm(lat, lon) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const a = (await res.json()).address || {};
   const suburb = a.suburb || a.city_district || a.town || a.village || a.city || '';
-  return suburb ? { suburb, street: a.road || a.pedestrian || '', source: 'osm' } : null;
+  return suburb ? { suburb, street: a.road || a.pedestrian || '', source: 'osm',
+    raw: [a.house_number, a.road, suburb].filter(Boolean).join(' ') } : null;
 }
 function hereHtml() {
   const dbg = DEBUG && here.log ? `<span class="small">[debug] ${esc(here.log.join(' · '))}</span>` : '';
@@ -407,11 +409,12 @@ async function refreshHere(force) {
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }));
     const { latitude: lat, longitude: lon, accuracy } = pos.coords;
     here.log = [`GPS ok, ±${Math.round(accuracy)}m`];
-    let place = await lookupTfnsw(lat, lon).catch((e) => { here.log.push(`tfnsw error: ${e.message}`); return null; });
+    // OpenStreetMap finds the nearest road (more accurate street); Transport for NSW is the backup.
+    let place = await lookupOsm(lat, lon).catch((e) => { here.log.push(`osm error: ${e.message}`); return null; });
     if (!place) {
-      here.log.push('tfnsw: no address');
-      place = await lookupOsm(lat, lon).catch((e) => { here.log.push(`osm error: ${e.message}`); return null; });
-      if (!place) here.log.push('osm: no address');
+      here.log.push('osm: no address');
+      place = await lookupTfnsw(lat, lon).catch((e) => { here.log.push(`tfnsw error: ${e.message}`); return null; });
+      if (!place) here.log.push('tfnsw: no address');
     }
     here.info = place ? { ...place, street: accuracy <= HERE_STREET_ACCURACY ? place.street : '' } : null;
   } catch (e) {
@@ -986,7 +989,8 @@ function showSettings() {
     <div class="small">如果不是廣東話,請參閱設定說明。</div>
     <div class="bar"><button class="btn danger" data-reset>還原預設</button></div>
     <div class="version">版本 ${esc(APP_VERSION)} · ${esc(APP_DATE)} ·
-      <a href="${esc(CHANGELOG_URL)}" target="_blank" rel="noopener">更新紀錄</a></div>`);
+      <a href="${esc(CHANGELOG_URL)}" target="_blank" rel="noopener">更新紀錄</a><br>
+      地址資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>`);
   $app.querySelector('[data-back]').onclick = showHome;
   $app.querySelector('[data-home]').onclick = () => showAddPlace(true);
   $app.querySelector('[data-add]').onclick = () => showAddPlace(false);
