@@ -47,15 +47,18 @@ const ZH_NAMES = {
 // searched by plain name, and shown without 站.
 const NOT_TRAIN_STATIONS = ['Chinatown', 'Carlingford'];
 
-// The places on the main screen the first time the app opens (editable in 設定).
+// The buttons on the main screen the first time the app opens (editable in 設定), in order.
 const DEFAULT_HOME = { zh: '家', en: 'Home', query: 'Rhodes Station' };
-const DEFAULT_PLACES = [
-  { zh: '中央站', en: 'Central', query: 'Central Station' },
-  { zh: '好市圍站', en: 'Hurstville', query: 'Hurstville Station' },
-  { zh: '寶活站', en: 'Burwood', query: 'Burwood Station' },
-  { zh: '車士活站', en: 'Chatswood', query: 'Chatswood Station' },
-  { zh: '黑鎮站', en: 'Blacktown', query: 'Blacktown Station' },
-  { zh: '河木站', en: 'Riverwood', query: 'Riverwood Station' },
-  { zh: '菲林明頓站', en: 'Flemington', query: 'Flemington Station' },
-  { zh: '環形碼頭', en: 'Circular Quay', query: 'Circular Quay Station' },
+const DEFAULT_ORDER = [
+  'Hurstville', 'Burwood', 'Blacktown', 'Riverwood', 'Flemington', 'Chatswood', 'Parramatta', 'Cabramatta',
+  'Eastwood', 'Gordon', 'Campsie', 'Kogarah', 'Carlingford', 'Chinatown', 'Central', 'Circular Quay',
+  'Strathfield', 'Town Hall', 'Redfern', 'Hornsby', 'Epping', 'Wynyard', 'Sydenham', 'Wolli Creek',
+  'Meadowbank', 'Concord West', 'North Strathfield', 'North Sydney', 'Bondi Junction', 'Martin Place',
+  'Auburn', 'Kings Cross', 'Lidcombe', 'Liverpool', 'Ashfield', 'Macquarie Park', 'Kingsgrove', 'Revesby',
 ];
+const DEFAULT_PLACES = DEFAULT_ORDER.map((en) => {
+  const train = !NOT_TRAIN_STATIONS.includes(en);
+  const zh = ZH_NAMES[en];
+  // 中央 -> 中央站; names with a nickname in brackets, and light rail stops, stay as written
+  return { zh: train && !/[()（）]/.test(zh) ? zh + '站' : zh, en, query: train ? `${en} Station` : en };
+});
