@@ -533,7 +533,7 @@ function uberLink(destPlace, journeys) {
 }
 function uberBlock(destPlace, journeys) {
   return `<a class="btn uber" href="${esc(uberLink(destPlace, journeys))}" target="_blank" rel="noopener">
-    🚕 不想搭車?查看 Uber 價錢
+    🚕 改搭 Uber? 查看價錢
     <span class="small">會打開 Uber app,起點用你現在的位置,目的地已經填好。按確認才會叫車。</span></a>`;
 }
 
