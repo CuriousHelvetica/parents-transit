@@ -92,6 +92,13 @@ function speakDirection(name) {
   return String(name || '').split(',')[0]
     .replace(/\s+via\s+.*$/i, '').replace(/\s*\(.*?\)/g, '').replace(/\s+(Stn|Station)$/i, '').trim();
 }
+// Direction on screen: Chinese for the main name + the full English, as on the displays:
+// "Gordon via City" -> "哥頓 Gordon via City"
+function directionLabel(name) {
+  const zh = ZH_NAMES[speakDirection(name)];
+  const en = String(name || '').split(',')[0].trim();
+  return zh ? `${esc(zh)} <span class="en">${esc(en)}</span>` : esc(en);
+}
 function platformOf(name) {
   const m = String(name || '').match(/Platform\s+(\w+)/i);
   if (m) return { zh: `${m[1]}號月台`, en: `Platform ${m[1]}` };
@@ -529,7 +536,7 @@ function journeySteps(j) {
       detail: `在 ${placeLabel(leg.origin.name)} 上車` +
         (plat ? `,<b>${esc(plat.zh)}</b> <span class="en">${esc(plat.en)}</span>` : '') +
         (m.key === 'bus' && streetOf(leg.origin.name) ? `<br><span class="en">${esc(streetOf(leg.origin.name))}</span>` : '') +
-        (towards ? `<br>往 ${placeLabel(towards)} 方向` : '') +
+        (towards ? `<br>往 ${directionLabel(towards)} 方向` : '') +
         (stops ? `<br>共 ${stops} 個站` : ''),
       notices,
       say: `${fmtTime(dep)},在${speakName(leg.origin.name)}` + (plat ? `${plat.zh}` : '') +

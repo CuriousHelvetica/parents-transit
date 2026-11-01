@@ -35,6 +35,7 @@ const ZH_NAMES = {
   'Kingsgrove': '金斯格羅夫',
   'Revesby': '利維斯比',
   'Cabramatta': '卡市 (越南城)',
+  'Gordon': '哥頓',
 };
 
 // The places on the main screen the first time the app opens (editable in 設定).
