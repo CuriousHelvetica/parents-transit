@@ -75,6 +75,9 @@ On a trip's detail page, **⏰ 提醒我** opens a calendar invite. Tap **Add to
 - Make sure **Settings → Notifications → Calendar** is allowed.
 - This is the part I could not test on a real iPhone. Please try it once yourself.
 
+### Going somewhere not on the buttons (🔍 其他地點)
+Below the destination buttons, **🔍 其他地點** opens a search box. Type a station, suburb, address or place in English (e.g. `Eastwood`, `Westfield Burwood`). Station names the app knows also work in Chinese (e.g. 伊頻). Tap a result to see trips straight away; the buttons don't change. To keep it as a button, tap **⭐ 加到常去地點** on the trip screen.
+
 ### Edit places
 In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or move them up (⬆️). When adding, you can type a Chinese name for the button.
 

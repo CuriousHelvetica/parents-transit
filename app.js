@@ -367,6 +367,7 @@ function showHome() {
     ${laterHtml}
     <h2>去哪裡?</h2>
     <div class="grid">${buttons}</div>
+    <div class="bar"><button class="btn other" data-other>🔍 其他地點<span class="en">Other places</span></button></div>
     <div class="bar"><button class="btn" data-settings>⚙️ 設定</button></div>
   `, true);
   $app.querySelectorAll('[data-from]').forEach((b) => b.onclick = () => { state.from = b.dataset.from; showHome(); });
@@ -389,19 +390,36 @@ function showHome() {
     const dest = b.dataset.go === 'home' ? settings.home : settings.places[+b.dataset.go];
     showTrips(fromHome ? settings.home : 'here', dest, { ...state.when });
   });
+  $app.querySelector('[data-other]').onclick = showSearchTrip;
   $app.querySelector('[data-settings]').onclick = showSettings;
 }
 
-async function showTrips(originPlace, destPlace, when) {
+// opts.oneOff: a place found with 🔍 其他地點 (not one of the saved buttons)
+async function showTrips(originPlace, destPlace, when, opts = {}) {
   clearTimers();
   state.screen = 'trips';
   const fromLabel = originPlace === 'here' ? '📍 現在位置' : esc(originPlace.zh || originPlace.en);
   const toLabel = esc(destPlace.zh || destPlace.en);
-  const header = `<button class="back" data-back>← 返回</button>
+  const isSaved = () => settings.places.some((p) => p.query === destPlace.query);
+  const saveBtn = () => (!opts.oneOff ? '' : isSaved()
+    ? '<div class="sub ontime">✓ 已加到常去地點</div>'
+    : '<div class="bar"><button class="btn" data-save>⭐ 加到常去地點</button></div>');
+  const headerHtml = () => `<button class="back" data-back>← 返回</button>
     <h1>${fromLabel} → ${toLabel}</h1>
-    <div class="when">${esc(whenSummary(when))}</div>`;
+    <div class="when">${esc(whenSummary(when))}</div>${saveBtn()}`;
+  let header = headerHtml();
+  const wireSave = () => {
+    const b = $app.querySelector('[data-save]');
+    if (b) b.onclick = () => {
+      settings.places.push({ ...destPlace });
+      saveSettings();
+      header = headerHtml();
+      b.parentElement.outerHTML = '<div class="sub ontime">✓ 已加到常去地點</div>';
+    };
+  };
   render(header + `<div class="msg">正在搜尋路線…</div>`);
   $app.querySelector('[data-back]').onclick = showHome;
+  wireSave();
 
   let origin, dest;
   try {
@@ -427,8 +445,9 @@ async function showTrips(originPlace, destPlace, when) {
     $app.querySelectorAll('[data-sort]').forEach((b) => b.onclick = () => {
       settings.sort = b.dataset.sort; saveSettings(); draw();
     });
+    wireSave();
     $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when)));
+      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts)));
   };
   const load = async () => {
     try {
@@ -684,6 +703,61 @@ function showSettings() {
   $app.querySelector('[data-reset]').onclick = () => {
     if (confirm('還原所有設定?')) { localStorage.removeItem(STORE_KEY); settings = loadSettings(); showSettings(); }
   };
+}
+
+// 🔍 其他地點: plan a one-off trip to any place without changing the saved buttons.
+// Chinese input matches the station names this app knows; anything else is searched in English.
+function localChineseMatches(text) {
+  return Object.entries(ZH_NAMES).filter(([, zh]) => zh.includes(text) || text.includes(zh.split(' ')[0]))
+    .map(([en, zh]) => ({ zh: withStation(zh, true), en, query: `${en} Station` }));
+}
+function showSearchTrip() {
+  clearTimers();
+  state.screen = 'search';
+  render(`<button class="back" data-back>← 返回</button>
+    <h1>去其他地點</h1>
+    <div class="when">${esc(state.from === 'home' ? '由 家' : '由 現在位置')}・${esc(whenSummary(state.when))}</div>
+    <div class="small">輸入車站、地址或地點名稱。中文只適用於已知車站 (例如 伊頻),其他請用英文 (例如 Eastwood)。</div>
+    <div class="bar"><input type="text" id="q" placeholder="例如 伊頻 / Eastwood" autocomplete="off"></div>
+    <div class="bar"><button class="btn primary" data-search>🔍 搜尋</button></div>
+    <div id="results"></div>`);
+  $app.querySelector('[data-back]').onclick = showHome;
+  const input = $app.querySelector('#q');
+  const go = async () => {
+    const box = $app.querySelector('#results');
+    const text = input.value.trim();
+    if (!text) return;
+    let places = [];
+    if (/[\u3400-\u9fff]/.test(text)) {
+      places = localChineseMatches(text);
+      if (!places.length) {
+        box.innerHTML = '<div class="msg">找不到這個中文名稱。請改用英文輸入 (例如 Eastwood)。</div>';
+        return;
+      }
+    } else {
+      box.innerHTML = '<div class="msg">搜尋中…</div>';
+      try {
+        places = (await searchPlaces(text)).map((l) => {
+          const zh = zhOf(l.name) ? withStation(zhOf(l.name), /Station/i.test(l.name)) : '';
+          return { zh, en: l.disassembledName || baseName(l.name), query: l.name, ref: refFromLocation(l), full: l.name };
+        });
+      } catch (e) {
+        box.innerHTML = `<div class="err">無法連接伺服器 (${esc(e.message)})</div>`;
+        return;
+      }
+      if (!places.length) { box.innerHTML = '<div class="msg">找不到</div>'; return; }
+    }
+    box.innerHTML = places.map((pl, i) => `<button class="result" data-pick="${i}">
+      ${pl.zh ? `${esc(pl.zh)} <span class="en">${esc(pl.en)}</span>` : esc(pl.en)}
+      <div class="small">${esc(pl.full || pl.query)}</div></button>`).join('');
+    box.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => {
+      const { full, ...dest } = places[+b.dataset.pick];
+      showTrips(state.from === 'home' ? settings.home : 'here', dest, { ...state.when }, { oneOff: true });
+    });
+  };
+  $app.querySelector('[data-search]').onclick = go;
+  input.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+  input.focus();
 }
 
 function showAddPlace(isHome) {
