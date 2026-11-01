@@ -5,5 +5,5 @@
   "display": "standalone",
   "background_color": "#fdf6ea",
   "theme_color": "#fdf6ea",
-  "icons": [{ "src": "icon-heart-512.png", "sizes": "512x512", "type": "image/png" }]
+  "icons": [{ "src": "icon-heart2-512.png", "sizes": "512x512", "type": "image/png" }]
 }
