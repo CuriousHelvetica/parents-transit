@@ -3,7 +3,7 @@
   "short_name": "爸媽出行",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0b5cab",
+  "background_color": "#fdf6ea",
+  "theme_color": "#fdf6ea",
   "icons": [{ "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }]
 }
