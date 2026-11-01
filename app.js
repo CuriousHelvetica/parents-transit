@@ -441,17 +441,22 @@ document.addEventListener('visibilitychange', () => {
 // which open iPhone's wheel.
 const MINUTE_STEP = 5;
 const HOUR_ORDER = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4];
-function timePickerHtml(hhmm) {
+// limit = [hour, minute] of the earliest allowed time (today only), or null for the full list.
+function minuteOptions(h, selected, limit) {
+  const start = limit && h === limit[0] ? limit[1] : 0;
+  return Array.from({ length: 60 / MINUTE_STEP }, (_, k) => k * MINUTE_STEP).filter((x) => x >= start)
+    .map((x) => `<option value="${x}"${x === selected ? ' selected' : ''}>${String(x).padStart(2, '0')}分</option>`).join('');
+}
+function timePickerHtml(hhmm, limit = null) {
   let [h, m] = hhmm.split(':').map(Number);
   m = Math.round(m / MINUTE_STEP) * MINUTE_STEP;
   if (m === 60) { m = 0; h = (h + 1) % 24; }
-  const opt = (v, label, on) => `<option value="${v}"${on ? ' selected' : ''}>${label}</option>`;
-  const hours = HOUR_ORDER.map((x) => opt(x, `${dayPart(x)} ${x % 12 || 12}時`, x === h)).join('');
-  const mins = Array.from({ length: 60 / MINUTE_STEP }, (_, k) => k * MINUTE_STEP)
-    .map((x) => opt(x, `${String(x).padStart(2, '0')}分`, x === m)).join('');
+  // Today: only the hours still to come, in clock order; other days: daily order from 清晨 5時
+  const order = limit ? Array.from({ length: 24 - limit[0] }, (_, k) => limit[0] + k) : HOUR_ORDER;
+  const hours = order.map((x) => `<option value="${x}"${x === h ? ' selected' : ''}>${dayPart(x)} ${x % 12 || 12}時</option>`).join('');
   return `<div class="bar timepick">
     <select data-hour aria-label="時">${hours}</select>
-    <select data-min aria-label="分">${mins}</select></div>`;
+    <select data-min aria-label="分">${minuteOptions(h, m, limit)}</select></div>`;
 }
 function timeFromPicker(tp) {
   const h = +tp.querySelector('[data-hour]').value;
@@ -556,16 +561,35 @@ function defaultPlan() {
   const h = +p.hour + 1;
   return { mode: 'later', date: sydneyDate(h >= 24 ? 1 : 0), time: `${String(h % 24).padStart(2, '0')}:00`, arrive: false };
 }
+// Earliest time that can still be chosen today: the next 5-minute slot after now; null if none is left.
+function earliestToday() {
+  const p = sydneyParts(new Date());
+  let h = +p.hour, m = Math.floor(+p.minute / MINUTE_STEP) * MINUTE_STEP + MINUTE_STEP;
+  if (m >= 60) { m = 0; h += 1; }
+  return h >= 24 ? null : [h, m];
+}
+// Never plan a time that has already passed today.
+function clampPlan(draft) {
+  if (draft.date !== sydneyDate(0)) return draft;
+  const e = earliestToday();
+  if (!e) { draft.date = sydneyDate(1); return draft; }
+  const [h, m] = draft.time.split(':').map(Number);
+  if (h * 60 + m < e[0] * 60 + e[1]) draft.time = `${String(e[0]).padStart(2, '0')}:${String(e[1]).padStart(2, '0')}`;
+  return draft;
+}
 // Works on a copy: ✕ 取消 discards it, ✓ 確定 saves it.
 function showPlanPage(draftIn) {
   clearTimers();
   state.screen = 'plan';
-  const draft = draftIn || (state.when.mode === 'later' ? { ...state.when } : defaultPlan());
+  const draft = clampPlan(draftIn || (state.when.mode === 'later' ? { ...state.when } : defaultPlan()));
+  const todayLeft = !!earliestToday();
+  const limit = draft.date === sydneyDate(0) ? earliestToday() : null;
   const dayChips = [0, 1, 2].map((o) => {
     const ymd = sydneyDate(o);
     const [, m, d] = ymd.split('-').map(Number);
     const wd = WEEKDAYS[new Date(Date.UTC(...ymd.split('-').map((x, k) => (k === 1 ? x - 1 : +x)))).getUTCDay()];
-    return `<button data-day="${ymd}" class="${draft.date === ymd ? 'on' : ''}">${['今天', '明天', '後天'][o]}<br><span class="small">${m}月${d}日<br>星期${wd}</span></button>`;
+    const off = o === 0 && !todayLeft;   // nothing left to plan today
+    return `<button data-day="${ymd}" class="${draft.date === ymd ? 'on' : ''}"${off ? ' disabled' : ''}>${['今天', '明天', '後天'][o]}<br><span class="small">${m}月${d}日<br>星期${wd}</span></button>`;
   }).join('');
   const otherDay = ![0, 1, 2].some((o) => sydneyDate(o) === draft.date);
   render(`<button class="back" data-cancel>✕ 取消</button>
@@ -580,21 +604,30 @@ function showPlanPage(draftIn) {
       <button data-arrive="1" class="${draft.arrive ? 'on' : ''}">🏁 到達時間</button>
     </div>
     <h2>幾點?</h2>
-    ${timePickerHtml(draft.time)}
+    ${timePickerHtml(draft.time, limit)}
     <div class="card plan-card" id="whenSummary">${esc(whenSummary(draft))}</div>
     <div class="bar"><button class="btn primary big" data-confirm>✓ 確定</button></div>`, true);
   $app.querySelector('[data-cancel]').onclick = showHome;
-  $app.querySelector('[data-confirm]').onclick = () => { state.when = { ...draft, mode: 'later' }; showHome(); };
+  $app.querySelector('[data-confirm]').onclick = () => { state.when = { ...clampPlan(draft), mode: 'later' }; showHome(); };
   $app.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => { draft.date = b.dataset.day; showPlanPage(draft); });
   $app.querySelectorAll('[data-arrive]').forEach((b) => b.onclick = () => { draft.arrive = b.dataset.arrive === '1'; showPlanPage(draft); });
   // iPhone fires a change on every turn of a picker wheel, so only record the value and update the
   // summary; redrawing the page would close the picker before it's confirmed.
   const updateSummary = () => { $app.querySelector('#whenSummary').textContent = whenSummary(draft); };
   const other = $app.querySelector('#otherDate');
-  other.onchange = () => { if (other.value) { draft.date = other.value; updateSummary(); } };
+  other.onchange = () => { if (other.value) { draft.date = other.value; clampPlan(draft); updateSummary(); } };
   other.onblur = () => showPlanPage(draft);   // after the picker closes: refresh the 今天/明天/後天 highlight
   const tp = $app.querySelector('.timepick');
-  tp.querySelectorAll('select').forEach((sel) => sel.onchange = () => { draft.time = timeFromPicker(tp); updateSummary(); });
+  const minSel = tp.querySelector('[data-min]');
+  tp.querySelector('[data-hour]').onchange = () => {
+    // Today, the current hour has fewer minutes: refresh only the minutes list (not the whole page)
+    const h = +tp.querySelector('[data-hour]').value;
+    const keep = +minSel.value;
+    minSel.innerHTML = minuteOptions(h, keep, limit);   // keeps the minute if allowed, else the first allowed one
+    draft.time = timeFromPicker(tp);
+    updateSummary();
+  };
+  minSel.onchange = () => { draft.time = timeFromPicker(tp); updateSummary(); };
 }
 
 // opts.oneOff: a place found with 🔍 其他地點 (not one of the saved buttons)

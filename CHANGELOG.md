@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.3.2 — 2026-11-01
+- 📅 預先計劃: for 今天, only times from the next 5-minute slot onwards (past hours and minutes not offered); other days keep the full list. Switching to 今天 moves an earlier time to the earliest available; 今天 is greyed out when nothing is left today.
+
 ### v1.3.1 — 2026-11-01
 - 📅 預先計劃 opens its own page (哪一天? / 出發還是到達? / 幾點? and a summary), with ✕ 取消 (discard) and ✓ 確定 (save). Defaults to today, next round hour. The main-screen button then shows the plan, e.g. 「明天 早上 9:30 出發」; ⏱️ 現在 stays one tap.
 - Fixed the 📍 現在位置 button in the start list (was half width, text cut off).
