@@ -77,6 +77,13 @@ function speakName(name) {
   const zh = zhOf(name);
   return zh ? withStation(zh, /Station/i.test(name || '')) : baseName(name);
 }
+// Direction for read-aloud, short like the station displays:
+// "Gordon via City" -> "Gordon", "Rockdale Stn (Railway St)" -> "Rockdale".
+function speakDirection(name) {
+  const short = String(name || '').split(',')[0]
+    .replace(/\s+via\s+.*$/i, '').replace(/\s*\(.*?\)/g, '').replace(/\s+(Stn|Station)$/i, '').trim();
+  return ZH_NAMES[short] || short;
+}
 function platformOf(name) {
   const m = String(name || '').match(/Platform\s+(\w+)/i);
   if (m) return { zh: `${m[1]}號月台`, en: `Platform ${m[1]}` };
@@ -517,7 +524,7 @@ function journeySteps(j) {
         (stops ? `<br>共 ${stops} 個站` : ''),
       notices,
       say: `${fmtTime(dep)},在${speakName(leg.origin.name)}` + (plat ? `${plat.zh}` : '') +
-        `,乘搭${line}${m.zh}` + (towards ? `,往${speakName(towards)}方向` : '') +
+        `,乘搭${line}${m.zh}` + (towards ? `,往${speakDirection(towards)}方向` : '') +
         (stops ? `,共${stops}個站` : '') + '。',
     });
     const arr = arrTime(leg.destination);
