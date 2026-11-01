@@ -248,15 +248,6 @@ function restorePlaces(zh, places) {
   }
   return out;
 }
-// For read-aloud: say only the Chinese name.
-function speakable(text) {
-  let out = text;
-  PLACE_KEYS.forEach((name) => {
-    out = out.replace(new RegExp(`(${reEscape(ZH_NAMES[name])}站?) ${reEscape(name)}\\b`, 'g'), '$1');
-  });
-  return out;
-}
-
 function translate(text) {
   if (translations[text]) return Promise.resolve(translations[text]);
   if (!pendingTr[text]) {
@@ -532,7 +523,7 @@ function journeySteps(j) {
     const arr = arrTime(leg.destination);
     const isLastRide = !j.legs.slice(i + 1).some((l) => !modeOf(l).walk);
     steps.push({
-      icon: '🛑',
+      icon: isLastRide ? '📍' : '🔄',
       what: `${fmtTime(arr)} 在 ${placeLabel(leg.destination.name)} 下車`,
       detail: isLastRide ? '' : '然後轉車',
       say: `${fmtTime(arr)},在${speakName(leg.destination.name)}下車` + (isLastRide ? '。' : ',然後轉車。'),
@@ -547,8 +538,8 @@ function showJourney(j, goBack) {
   const leave = depTime(j.legs[0].origin);
   const arrive = arrTime(j.legs[j.legs.length - 1].destination);
   const steps = journeySteps(j);
-  const sayText = () => steps.map((s) => s.say +
-    (s.notices || []).map((n) => (translations[n.key] ? `服務通知:${speakable(translations[n.key])}` : '')).join('')).join(' ');
+  // Read only the trip steps, not the service notices.
+  const sayText = () => steps.map((s) => s.say).join(' ');
   const draw = (keepScroll) => {
     const lt = leaveText(leave);
     render(`<button class="back" data-back>← 返回</button>
