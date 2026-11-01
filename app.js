@@ -63,17 +63,19 @@ function ymdOf(date) {
 function baseName(name) {
   return String(name || '').split(',')[0].replace(/\s+(Station|Wharf|Light Rail|Metro Station)$/i, '').trim();
 }
+// 中央 -> 中央站, but names with a nickname in brackets stay as written: 卡市 (越南城)
+function withStation(zh, isStation) { return isStation && !/[()（）]/.test(zh) ? zh + '站' : zh; }
 function zhOf(name) { return ZH_NAMES[baseName(name)] || ''; }
 // Chinese + English label, e.g. 好市圍站 Hurstville
 function placeLabel(name) {
   const en = baseName(name);
   const isStation = /Station/i.test(name || '');
   const zh = ZH_NAMES[en];
-  return zh ? `${esc(zh)}${isStation ? '站' : ''} <span class="en">${esc(en)}</span>` : esc(en);
+  return zh ? `${esc(withStation(zh, isStation))} <span class="en">${esc(en)}</span>` : esc(en);
 }
 function speakName(name) {
   const zh = zhOf(name);
-  return zh ? zh + (/Station/i.test(name || '') ? '站' : '') : baseName(name);
+  return zh ? withStation(zh, /Station/i.test(name || '')) : baseName(name);
 }
 function platformOf(name) {
   const m = String(name || '').match(/Platform\s+(\w+)/i);
@@ -224,7 +226,7 @@ function protectPlaces(en) {
   let text = en;
   PLACE_KEYS.forEach((name) => {
     text = text.replace(new RegExp(`\\b${reEscape(name)}(\\s+Station)?\\b`, 'g'), (m, st) => {
-      places.push(`${ZH_NAMES[name]}${st ? '站' : ''} ${name}`);
+      places.push(`${withStation(ZH_NAMES[name], !!st)} ${name}`);
       return `[[${places.length}]]`;
     });
   });
@@ -677,7 +679,7 @@ function showAddPlace(isHome) {
         if (isHome) {
           settings.home = { zh: '家', en: 'Home', query: loc.name, ref };
         } else {
-          const guess = zhOf(loc.name) ? zhOf(loc.name) + (/Station/i.test(loc.name) ? '站' : '') : '';
+          const guess = zhOf(loc.name) ? withStation(zhOf(loc.name), /Station/i.test(loc.name)) : '';
           const zh = prompt('輸入中文名稱 (可留空)', guess);
           if (zh === null) return;
           settings.places.push({ zh: zh.trim(), en, query: loc.name, ref });

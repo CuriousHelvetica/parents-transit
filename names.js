@@ -34,7 +34,7 @@ const ZH_NAMES = {
   'Macquarie Park': '麥覺理公園',
   'Kingsgrove': '金斯格羅夫',
   'Revesby': '利維斯比',
-  'Cabramatta': '卡市',
+  'Cabramatta': '卡市 (越南城)',
 };
 
 // The places on the main screen the first time the app opens (editable in 設定).
