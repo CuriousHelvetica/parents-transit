@@ -431,6 +431,29 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && state.screen === 'home') refreshHere(false);
 });
 
+// Time picker: 上午/下午 + hour + minutes in 5-minute steps (iPhone's own time picker ignores steps,
+// so its minutes wheel would have all 60 minutes). Each <select> opens iPhone's wheel.
+const MINUTE_STEP = 5;
+function timePickerHtml(hhmm) {
+  let [h, m] = hhmm.split(':').map(Number);
+  m = Math.round(m / MINUTE_STEP) * MINUTE_STEP;
+  if (m === 60) { m = 0; h = (h + 1) % 24; }
+  const pm = h >= 12, h12 = h % 12 || 12;
+  const opt = (v, label, on) => `<option value="${v}"${on ? ' selected' : ''}>${label}</option>`;
+  const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((x) => opt(x, x, x === h12)).join('');
+  const mins = Array.from({ length: 60 / MINUTE_STEP }, (_, k) => k * MINUTE_STEP)
+    .map((x) => opt(x, String(x).padStart(2, '0'), x === m)).join('');
+  return `<div class="bar timepick">
+    <select data-ampm aria-label="上午/下午">${opt('am', '上午', !pm)}${opt('pm', '下午', pm)}</select>
+    <select data-hour aria-label="時">${hours}</select><span class="colon">:</span>
+    <select data-min aria-label="分">${mins}</select></div>`;
+}
+function timeFromPicker(tp) {
+  const h12 = +tp.querySelector('[data-hour]').value % 12;
+  const h = h12 + (tp.querySelector('[data-ampm]').value === 'pm' ? 12 : 0);
+  return `${String(h).padStart(2, '0')}:${String(tp.querySelector('[data-min]').value).padStart(2, '0')}`;
+}
+
 function showHome() {
   clearTimers();
   state.screen = 'home';
@@ -457,7 +480,7 @@ function showHome() {
       <button data-arrive="0" class="${w.arrive ? '' : 'on'}">🚶 出發時間</button>
       <button data-arrive="1" class="${w.arrive ? 'on' : ''}">🏁 到達時間</button>
     </div>
-    <div class="bar"><input type="time" id="time" value="${w.time}"></div>
+    ${timePickerHtml(w.time)}
     <div class="sub" id="whenSummary">${esc(whenSummary(w))}</div>`;
   render(`
     <div class="head">
@@ -501,8 +524,11 @@ function showHome() {
     other.onchange = () => { if (other.value) { state.when.date = other.value; updateSummary(); } };
     other.onblur = () => showHome();   // after the picker closes: refresh the 今天/明天/後天 highlight
   }
-  const time = $app.querySelector('#time');
-  if (time) time.onchange = () => { if (time.value) { state.when.time = time.value; updateSummary(); } };
+  const tp = $app.querySelector('.timepick');
+  if (tp) tp.querySelectorAll('select').forEach((sel) => sel.onchange = () => {
+    state.when.time = timeFromPicker(tp);
+    updateSummary();
+  });
   $app.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => {
     const dest = b.dataset.go === 'home' ? settings.home : settings.places[+b.dataset.go];
     showTrips(fromHome ? settings.home : 'here', dest, { ...state.when });

@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.2.3 — 2026-11-01
+- 📅 預先計劃: time is now picked with three small wheels — 上午/下午, hour, minutes in 5-minute steps — instead of iPhone's time picker with all 60 minutes.
+
 ### v1.2.2 — 2026-11-01
 - 🔊 朗讀: same Cantonese voice every time — picks premium > enhanced > standard by a fixed rule, skips Apple's novelty/Eloquence voices, and loads the voice list at start-up.
 

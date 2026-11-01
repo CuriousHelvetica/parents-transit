@@ -139,3 +139,6 @@ body.alert-off main, body.alert-off main * { color: #fff !important; }
 button.here { background: none; text-align: right; padding: 10px 0 0; max-width: 50%; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3; }
 button.here b { font-size: 20px; color: var(--primary); }
 button.here .small { font-size: 15px; }
+.timepick { align-items: center; }
+.timepick select { flex: 1; font: inherit; font-size: 26px; font-weight: 700; padding: 12px 8px; border-radius: 12px; border: 2px solid var(--border); background: #fff; color: inherit; text-align: center; text-align-last: center; -webkit-appearance: none; appearance: none; }
+.timepick .colon { font-size: 28px; font-weight: 700; }
