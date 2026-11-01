@@ -2,7 +2,7 @@
 
 // ---------- Storage (everything personal stays on this phone) ----------
 const STORE_KEY = 'parents-transit-v1';
-const TR_KEY = 'parents-transit-translations-v2';
+const TR_KEY = 'parents-transit-translations-v3';
 
 function loadSettings() {
   try {
@@ -243,14 +243,46 @@ const pendingTr = {};
 // mistranslate them, then put back as "紅坊 Redfern" (Chinese + English).
 const PLACE_KEYS = Object.keys(ZH_NAMES).sort((a, b) => b.length - a.length);
 function reEscape(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// Words that start with a capital but are ordinary words, not names (still translated).
+const NOT_NAMES = new Set(('Coach Coaches Contact Centre Center Customer Customers Station Stations Platform Platforms ' +
+  'Bus Buses Train Trains Metro Light Rail Lift Lifts Please Note Trackwork Service Services Passengers Replacement ' +
+  'Update Updates Notice Alert Change Changes Closure Closed Works Work Planned Temporary Delay Delays Information ' +
+  'Access Accessibility Entrance Exit Escalator Escalators Stairs Concourse Level Upper Lower Car Park Parking ' +
+  'Ticket Tickets Free Wheelchair Toilets Staff Customers Today Tomorrow Weekend Night Morning Evening ' +
+  'Monday Tuesday Wednesday Thursday Friday Saturday Sunday January February March April May June July August ' +
+  'September October November December I If When Use Opal').split(' '));
+const NAME_RE = "[A-Z][a-zA-Z']+(?:\\s+[A-Z][a-zA-Z']+)*";
+// "Use Bathurst" -> "Bathurst"; "Coach" -> '' (not a name)
+function cleanName(n) {
+  const words = n.split(/\s+/);
+  while (words.length && NOT_NAMES.has(words[0])) words.shift();
+  return words.join(' ');
+}
 function protectPlaces(en) {
   const places = [];
+  const token = (label) => { places.push(label); return `[[${places.length}]]`; };
   let text = en;
+  // 1. Stations with a Chinese name: 紅坊 Redfern
   PLACE_KEYS.forEach((name) => {
-    text = text.replace(new RegExp(`\\b${reEscape(name)}(\\s+Station)?\\b`, 'g'), (m, st) => {
-      places.push(`${withStation(ZH_NAMES[name], !!st)} ${name}`);
-      return `[[${places.length}]]`;
-    });
+    text = text.replace(new RegExp(`\\b${reEscape(name)}(\\s+Station)?\\b`, 'g'),
+      (m, st) => token(`${withStation(ZH_NAMES[name], !!st)} ${name}`));
+  });
+  // 2. Opal card -> Opal卡
+  text = text.replace(/\bOpal cards?\b/g, () => token('Opal卡')).replace(/\bOpal\b/g, () => token('Opal'));
+  // 3. Other stations stay in English: "Bathurst and Lithgow Stations" -> Bathurst站 和 Lithgow站
+  text = text.replace(new RegExp(`(${NAME_RE}(?:\\s*(?:,|and|&)\\s*${NAME_RE})*)\\s+[Ss]tations?\\b`, 'g'), (m, list) =>
+    list.replace(new RegExp(NAME_RE, 'g'), (n) => {
+      const name = cleanName(n);
+      return name ? n.slice(0, n.length - name.length) + token(`${name}站`) : n;
+    }));
+  // 4. Other capitalised names in mid-sentence ("to or from Bathurst") stay in English
+  text = text.replace(new RegExp(NAME_RE, 'g'), (n, offset) => {
+    const before = text.slice(0, offset).trimEnd();
+    const sentenceStart = !before || /[.!?:\-(]$/.test(before);
+    const name = cleanName(n);
+    // At a sentence start the first capital is ordinary, unless it's followed by a name ("Use Eddy Avenue")
+    if (sentenceStart && name === n) return n;
+    return name ? n.slice(0, n.length - name.length) + token(name) : n;
   });
   return { text, places };
 }
