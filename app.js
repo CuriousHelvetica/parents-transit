@@ -549,7 +549,7 @@ function showJourney(j, goBack) {
         <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達</div>
       </div>
       <div class="bar">
-        <button class="btn primary" data-say>🔊 朗讀</button>
+        <button class="btn" data-say>🔊 朗讀</button>
         <button class="btn" data-remind>⏰ 提醒我</button>
       </div>
       <div class="card">${steps.map((s) => `<div class="step"><div class="icon">${s.icon}</div>
@@ -558,7 +558,17 @@ function showJourney(j, goBack) {
         <div class="step"><div class="icon">🏁</div><div class="what">${fmtTime(arrive)} 到達</div></div>
       </div>`, keepScroll);
     $app.querySelector('[data-back]').onclick = () => { stopSpeaking(); goBack(); };
-    $app.querySelector('[data-say]').onclick = () => speak(sayText());
+    // White when idle, blue with 「停止」 while reading; tap again to stop.
+    const sayBtn = $app.querySelector('[data-say]');
+    const showSaying = (on) => {
+      sayBtn.classList.toggle('primary', on);
+      sayBtn.textContent = on ? '⏹ 停止' : '🔊 朗讀';
+    };
+    sayBtn.onclick = () => {
+      if (isSpeaking()) return stopSpeaking();
+      speak(sayText(), () => showSaying(false));
+      showSaying(true);
+    };
     $app.querySelector('[data-remind]').onclick = () => remind(j, steps);
     fillNotices();
   };
@@ -575,7 +585,9 @@ function cantoneseVoice() {
   const voices = speechSynthesis.getVoices();
   return voices.find((v) => /zh[-_]HK/i.test(v.lang)) || voices.find((v) => /yue/i.test(v.lang)) || null;
 }
-function speak(text) {
+// speak(text, onDone): onDone runs once when reading ends or is stopped.
+let speakDone = null;
+function speak(text, onDone) {
   if (!('speechSynthesis' in window)) return alert('這部電話不支援朗讀');
   stopSpeaking();
   const u = new SpeechSynthesisUtterance(text);
@@ -583,9 +595,17 @@ function speak(text) {
   const v = cantoneseVoice();
   if (v) u.voice = v;
   u.rate = 0.9;
+  const done = () => { if (speakDone === done) { speakDone = null; if (onDone) onDone(); } };
+  speakDone = done;
+  u.onend = done;
+  u.onerror = done;
   speechSynthesis.speak(u);
 }
-function stopSpeaking() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+function isSpeaking() { return speakDone !== null; }
+function stopSpeaking() {
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (speakDone) speakDone();
+}
 if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
 
 // ---------- Reminder: a calendar event with an alarm ----------
