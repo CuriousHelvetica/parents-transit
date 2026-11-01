@@ -464,7 +464,8 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   let journeys = null;
   const draw = () => {
     if (state.screen !== 'trips' || !journeys) return;
-    if (!journeys.length) return showError(header, '找不到路線。請改一下時間,或稍後再試。');
+    const uber = when.mode === 'now' ? uberBlock(destPlace, journeys) : '';
+    if (!journeys.length) return showError(header, '找不到路線。請改一下時間,或稍後再試。', uber);
     const sort = settings.sort || 'changes';
     const sorted = sortJourneys(journeys, sort, when);
     render(header + `<div class="toggle sort">
@@ -472,7 +473,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
         <button data-sort="fast" class="${sort === 'fast' ? 'on' : ''}">⚡ 最快</button>
       </div>
       <div class="sub">更新時間 ${fmtTime(new Date())}・自動更新</div>` +
-      sorted.map((j, i) => journeyCard(j, i)).join(''), true);
+      sorted.map((j, i) => journeyCard(j, i)).join('') + uber, true);
     $app.querySelector('[data-back]').onclick = showHome;
     $app.querySelectorAll('[data-sort]').forEach((b) => b.onclick = () => {
       settings.sort = b.dataset.sort; saveSettings(); draw();
@@ -508,9 +509,37 @@ function sortJourneys(journeys, sort, when) {
   return journeys.slice().sort((a, b) => (sort === 'changes' ? changesOf(a) - changesOf(b) : 0) || fast(a, b));
 }
 
-function showError(header, text) {
+// 🚕 Uber: opens the Uber app (or Uber's website) with pickup = the phone's current location and the
+// destination filled in, so the real price shows before booking. Nothing is booked automatically.
+// Only shown for 「現在」 trips, because Uber's price is for right now.
+function uberLink(destPlace, journeys) {
+  const q = new URLSearchParams({ action: 'setPickup', pickup: 'my_location' });
+  const name = destPlace.query || destPlace.en || '';
+  // Destination position: from the trip results, or from the saved place
+  let coord = null;
+  const last = journeys && journeys[0] && journeys[0].legs[journeys[0].legs.length - 1];
+  if (last && last.destination && Array.isArray(last.destination.coord)) coord = last.destination.coord; // [lat, lon]
+  else if (destPlace.ref && destPlace.ref.type === 'coord') {
+    const [lon, lat] = destPlace.ref.name.split(':');
+    coord = [lat, lon];
+  }
+  if (coord) {
+    q.set('dropoff[latitude]', coord[0]);
+    q.set('dropoff[longitude]', coord[1]);
+  }
+  q.set('dropoff[nickname]', name);
+  q.set('dropoff[formatted_address]', /NSW/.test(name) ? name : `${name}, NSW`);
+  return `https://m.uber.com/ul/?${q}`;
+}
+function uberBlock(destPlace, journeys) {
+  return `<a class="btn uber" href="${esc(uberLink(destPlace, journeys))}" target="_blank" rel="noopener">
+    🚕 不想搭車?查看 Uber 價錢
+    <span class="small">會打開 Uber app,起點用你現在的位置,目的地已經填好。按確認才會叫車。</span></a>`;
+}
+
+function showError(header, text, extra = '') {
   render(header + `<div class="err">${esc(text)}</div>
-    <div class="bar"><button class="btn primary" data-retry>重試</button></div>`);
+    <div class="bar"><button class="btn primary" data-retry>重試</button></div>${extra}`);
   $app.querySelector('[data-back]').onclick = showHome;
   $app.querySelector('[data-retry]').onclick = () => location.reload();
 }

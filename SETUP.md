@@ -78,6 +78,11 @@ On a trip's detail page, **⏰ 提醒我** opens a calendar invite. Tap **Add to
 ### Going somewhere not on the buttons (🔍 其他地點)
 Below the destination buttons, **🔍 其他地點** opens a search box. Type a station, suburb, address or place in English (e.g. `Eastwood`, `Westfield Burwood`). Station names the app knows also work in Chinese (e.g. 伊頻). Tap a result to see trips straight away; the buttons don't change. To keep it as a button, tap **⭐ 加到常去地點** on the trip screen.
 
+### Uber price (🚕 不想搭車?查看 Uber 價錢)
+For trips leaving **now**, a button at the bottom of the trip list (and on the "no route found" screen) opens the **Uber app** with pickup = their current location and the destination already filled in. Uber then shows the real price. Nothing is booked until they press Uber's own confirm button.
+- Check **Settings → Uber → Location → While Using the App** so Uber can find them.
+- Worth doing one practice booking together, including confirming the pickup pin at home.
+
 ### Edit places
 In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or move them up (⬆️). When adding, you can type a Chinese name for the button.
 
