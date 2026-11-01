@@ -748,16 +748,34 @@ function metres(a, b) {   // a, b = [lat, lon]
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 // Highest stop index the bus has reached or gone past, given the current position.
-function stopsPassed(list, pos, passed) {
+// accuracy = GPS accuracy in metres: the "near the stop" circle grows when GPS is less precise.
+// Which stops could the bus have reached by now? Each stop has its expected (live, if available) time;
+// stops due more than EARLY_MINUTES from now are not considered, so a winding route that passes near a
+// later stop can't jump ahead, but a long GPS gap still catches up fully. Without times: LOOK_AHEAD stops.
+const EARLY_MINUTES = 4;
+const LOOK_AHEAD = 6;
+// Highest stop index the bus has reached or gone past, given the current position.
+// accuracy = GPS accuracy in metres: the "near the stop" circle grows when GPS is less precise.
+function stopsPassed(list, pos, passed, accuracy = 0, now = Date.now()) {
+  let found = passed;
   for (let k = passed + 1; k < list.length; k++) {
-    const atStop = metres(pos, list[k].coord) < 80;
+    if (list[k].time) {
+      if (new Date(list[k].time).getTime() > now + EARLY_MINUTES * 60000) break;
+    } else if (k > passed + LOOK_AHEAD) break;
+    // Circle: max(80 m, accuracy + 30 m), at most 200 m, and at most half the distance to a neighbouring stop
+    const gaps = [metres(list[k].coord, list[k - 1].coord),
+      k + 1 < list.length ? metres(list[k].coord, list[k + 1].coord) : Infinity];
+    const radius = Math.max(30, Math.min(Math.max(80, accuracy + 30), 200, Math.min(...gaps) / 2));
+    const atStop = metres(pos, list[k].coord) < radius;
     // Past stop k: closer to stop k+1 than stop k is, and already away from stop k
     const pastStop = k + 1 < list.length &&
       metres(pos, list[k + 1].coord) < metres(list[k].coord, list[k + 1].coord) && metres(pos, list[k].coord) > 40;
-    if (atStop || pastStop) passed = k; else break;
+    if (atStop || pastStop) found = k;
   }
-  return passed;
+  return found;
 }
+const WORST_USABLE_ACCURACY = 300;   // metres; readings worse than this are ignored
+
 async function keepScreenOn() {
   try { return await navigator.wakeLock.request('screen'); } catch (e) { return null; }
 }
@@ -786,7 +804,9 @@ function showTracking(leg, goBack) {
       <div class="track-big">${big}</div>
       ${here ? '' : `<div class="track-row">下一站:<b>${placeLabel(next.full || next.name)}</b></div>`}
       <div class="track-row">下車站:<b>${placeLabel(list[target].full || list[target].name)}</b></div>
-      <div class="small">${lastFix ? `定位準確度約 ${Math.round(lastFix)} 米・螢幕會保持開啟` : '定位中…請保持此畫面開啟'}</div>
+      <div class="small">${!lastFix ? '定位中…請保持此畫面開啟'
+        : lastFix > WORST_USABLE_ACCURACY ? `定位不準 (約 ${Math.round(lastFix)} 米),等待中…`
+        : `定位準確度約 ${Math.round(lastFix)} 米・螢幕會保持開啟`}</div>
       <ol class="track-list">${list.map((st, k) => `<li class="${k <= passed ? 'done' : ''} ${k === target ? 'getoff' : ''} ${k === target - 1 ? 'bell' : ''}">
         ${k === target ? '📍 ' : ''}${placeLabel(st.full || st.name)}</li>`).join('')}</ol>`, true);
     $app.querySelector('[data-back]').onclick = () => { stop(); goBack(); };
@@ -794,7 +814,9 @@ function showTracking(leg, goBack) {
   if (!navigator.geolocation) { alert('這部電話不支援定位'); return goBack(); }
   watchId = navigator.geolocation.watchPosition((p) => {
     lastFix = p.coords.accuracy;
-    passed = stopsPassed(list, [p.coords.latitude, p.coords.longitude], passed);
+    if (lastFix <= WORST_USABLE_ACCURACY) {
+      passed = stopsPassed(list, [p.coords.latitude, p.coords.longitude], passed, lastFix);
+    }
     draw();
   }, () => {
     lastFix = null;
