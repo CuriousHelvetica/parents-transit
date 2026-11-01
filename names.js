@@ -23,6 +23,18 @@ const ZH_NAMES = {
   'Meadowbank': '米度賓',
   'Concord West': '西康科',
   'North Strathfield': '北史卓菲',
+  'North Sydney': '北悉尼',
+  'Bondi Junction': '邦迪交匯處',
+  'Martin Place': '馬丁廣場',
+  'Auburn': '奧本',
+  'Kings Cross': '國王十字',
+  'Lidcombe': '利德甘',
+  'Liverpool': '利物浦',
+  'Ashfield': '艾士菲',
+  'Macquarie Park': '麥覺理公園',
+  'Kingsgrove': '金斯格羅夫',
+  'Revesby': '利維斯比',
+  'Cabramatta': '卡市',
 };
 
 // The places on the main screen the first time the app opens (editable in 設定).
