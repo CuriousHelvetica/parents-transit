@@ -16,7 +16,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - Only public transport and walking — never cycling, driving or taxi legs.
 
 **Trip list**
-- 「X 分鐘後出門」 countdown, departure and arrival times (上午 / 下午), total time, number of changes, delays, service-notice warning.
+- 「X 分鐘後出門」 countdown, departure and arrival times (凌晨 / 清晨 / 早上 / 中午 / 下午 / 晚上), total time, number of changes, delays, service-notice warning.
 - Sort by 🔁 最少轉車 (fewest changes, default) or ⚡ 最快 (fastest).
 - Updates automatically (every minute for trips leaving now).
 - 🚕 改搭 Uber? 查看價錢 (trips leaving now): opens Uber with pickup = current location and the destination filled in.
@@ -41,6 +41,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.2.4 — 2026-11-01
+- Times now use time-of-day words everywhere (screen and read-aloud): 凌晨 (0–4), 清晨 (5–6), 早上 (7–11), 中午 (12), 下午 (1–5 pm), 晚上 (6–11 pm), e.g. 「晚上 7:30 出發」.
+- 📅 預先計劃: two wheels instead of three — one hour wheel in daily order (清晨 5時 … 晚上 11時, then 凌晨 12時 … 4時) and minutes in 5-minute steps.
 
 ### v1.2.3 — 2026-11-01
 - 📅 預先計劃: time is now picked with three small wheels — 上午/下午, hour, minutes in 5-minute steps — instead of iPhone's time picker with all 60 minutes.

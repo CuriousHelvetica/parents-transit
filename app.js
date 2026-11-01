@@ -39,9 +39,13 @@ function fmtTime(d) {
   const p = sydneyParts(d);
   return fmt12(+p.hour, p.minute);
 }
-// 13, '05' -> '下午 1:05'; 0, '30' -> '上午 12:30'; 12, '00' -> '下午 12:00'
+// Time of day words: 凌晨 0–4, 清晨 5–6, 早上 7–11, 中午 12, 下午 13–17, 晚上 18–23
+function dayPart(h) {
+  return h < 5 ? '凌晨' : h < 7 ? '清晨' : h < 12 ? '早上' : h === 12 ? '中午' : h < 18 ? '下午' : '晚上';
+}
+// 19, '30' -> '晚上 7:30'; 0, '15' -> '凌晨 12:15'; 12, '00' -> '中午 12:00'
 function fmt12(h, mm) {
-  return `${h < 12 ? '上午' : '下午'} ${h % 12 || 12}:${mm}`;
+  return `${dayPart(h)} ${h % 12 || 12}:${mm}`;
 }
 // '09:30' (from the time picker) -> '上午 9:30'
 function fmtHHMM(hhmm) {
@@ -431,26 +435,25 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && state.screen === 'home') refreshHere(false);
 });
 
-// Time picker: 上午/下午 + hour + minutes in 5-minute steps (iPhone's own time picker ignores steps,
-// so its minutes wheel would have all 60 minutes). Each <select> opens iPhone's wheel.
+// Time picker: one hour wheel in daily order (清晨 5時 … 晚上 11時, then 凌晨 12時 … 4時) and a minutes
+// wheel in 5-minute steps. iPhone's own time picker ignores steps (all 60 minutes), so we use <select>s,
+// which open iPhone's wheel.
 const MINUTE_STEP = 5;
+const HOUR_ORDER = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4];
 function timePickerHtml(hhmm) {
   let [h, m] = hhmm.split(':').map(Number);
   m = Math.round(m / MINUTE_STEP) * MINUTE_STEP;
   if (m === 60) { m = 0; h = (h + 1) % 24; }
-  const pm = h >= 12, h12 = h % 12 || 12;
   const opt = (v, label, on) => `<option value="${v}"${on ? ' selected' : ''}>${label}</option>`;
-  const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((x) => opt(x, x, x === h12)).join('');
+  const hours = HOUR_ORDER.map((x) => opt(x, `${dayPart(x)} ${x % 12 || 12}時`, x === h)).join('');
   const mins = Array.from({ length: 60 / MINUTE_STEP }, (_, k) => k * MINUTE_STEP)
-    .map((x) => opt(x, String(x).padStart(2, '0'), x === m)).join('');
+    .map((x) => opt(x, `${String(x).padStart(2, '0')}分`, x === m)).join('');
   return `<div class="bar timepick">
-    <select data-ampm aria-label="上午/下午">${opt('am', '上午', !pm)}${opt('pm', '下午', pm)}</select>
-    <select data-hour aria-label="時">${hours}</select><span class="colon">:</span>
+    <select data-hour aria-label="時">${hours}</select>
     <select data-min aria-label="分">${mins}</select></div>`;
 }
 function timeFromPicker(tp) {
-  const h12 = +tp.querySelector('[data-hour]').value % 12;
-  const h = h12 + (tp.querySelector('[data-ampm]').value === 'pm' ? 12 : 0);
+  const h = +tp.querySelector('[data-hour]').value;
   return `${String(h).padStart(2, '0')}:${String(tp.querySelector('[data-min]').value).padStart(2, '0')}`;
 }
 
