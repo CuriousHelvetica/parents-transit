@@ -141,3 +141,5 @@ button.here b { font-size: 20px; color: var(--primary); }
 button.here .small { font-size: 15px; }
 .timepick { align-items: center; }
 .timepick select { flex: 1; font: inherit; font-size: 26px; font-weight: 700; padding: 12px 8px; border-radius: 12px; border: 2px solid var(--border); background: #fff; color: inherit; text-align: center; text-align-last: center; -webkit-appearance: none; appearance: none; }
+h1.route { margin-bottom: 0; }
+.route-en { font-size: 20px; color: #666; font-weight: 600; margin-bottom: 6px; }

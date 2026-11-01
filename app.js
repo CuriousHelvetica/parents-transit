@@ -552,8 +552,13 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   const saveBtn = () => (!opts.oneOff ? '' : isSaved()
     ? '<div class="sub ontime">✓ 已加到常去地點</div>'
     : '<div class="bar"><button class="btn" data-save>⭐ 加到常去地點</button></div>');
+  // English underneath, e.g. 「家 → 寶活站」 / Home → Burwood
+  const fromEn = originPlace === 'here' ? 'Current location' : (originPlace.en || '');
+  const toEn = destPlace.en || '';
+  const enLine = fromEn && toEn && `${fromEn} → ${toEn}` !== `${originPlace.zh || ''} → ${destPlace.zh || ''}`
+    ? `<div class="route-en">${esc(fromEn)} → ${esc(toEn)}</div>` : '';
   const headerHtml = () => `<button class="back" data-back>← 返回</button>
-    <h1>${fromLabel} → ${toLabel}</h1>
+    <h1 class="route">${fromLabel} → ${toLabel}</h1>${enLine}
     <div class="when">${esc(whenSummary(when))}</div>${saveBtn()}`;
   let header = headerHtml();
   const wireSave = () => {

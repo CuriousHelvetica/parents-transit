@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.2.5 — 2026-11-01
+- Trip list heading shows English under the Chinese, e.g. 「家 → 寶活站」 / Home → Burwood.
+
 ### v1.2.4 — 2026-11-01
 - Times now use time-of-day words everywhere (screen and read-aloud): 凌晨 (0–4), 清晨 (5–6), 早上 (7–11), 中午 (12), 下午 (1–5 pm), 晚上 (6–11 pm), e.g. 「晚上 7:30 出發」.
 - 📅 預先計劃: two wheels instead of three — one hour wheel in daily order (清晨 5時 … 晚上 11時, then 凌晨 12時 … 4時) and minutes in 5-minute steps.
