@@ -591,6 +591,32 @@ function journeyCard(j, i) {
 }
 
 // Turn the journey into plain steps, each with screen text and spoken text.
+// Stops a ride passes through, from the trip data: [{ name, coord, time }]
+function rideStops(leg) {
+  return (Array.isArray(leg.stopSequence) ? leg.stopSequence : []).map((st) => ({
+    name: st.disassembledName || st.name || '',
+    full: st.name || '',
+    coord: Array.isArray(st.coord) ? st.coord : null,
+    time: st.arrivalTimeEstimated || st.arrivalTimePlanned || st.departureTimeEstimated || st.departureTimePlanned,
+  }));
+}
+// The 「顯示途經車站」 list: every stop, with 🔔 on the stop before the one to get off at.
+function stopListHtml(leg, m) {
+  const list = rideStops(leg);
+  if (list.length < 2) return '';
+  const last = list.length - 1;
+  const bell = m.key === 'bus' ? '🔔 下一站下車,請按鐘' : '下一站下車';
+  const rows = list.map((st, k) => {
+    const label = placeLabel(st.full || st.name);
+    const time = st.time ? `<span class="small">${fmtTime(new Date(st.time))}</span>` : '';
+    if (k === 0) return `<li class="first">${label} ${time}<div class="small">上車</div></li>`;
+    if (k === last) return `<li class="getoff">📍 ${label} ${time}<div>在此下車</div></li>`;
+    if (k === last - 1) return `<li class="bell">${label} ${time}<div>${bell}</div></li>`;
+    return `<li>${label} ${time}</li>`;
+  }).join('');
+  return `<details class="stops"><summary>顯示途經車站 (${last} 個站)</summary><ol>${rows}</ol></details>`;
+}
+
 // 🗺️ Apple Maps walking directions from where the phone is now to a stop or place.
 // https://maps.apple.com/?daddr=<lat,lon>&dirflg=w  (no start given = "here")
 function mapLink(stop) {
@@ -635,6 +661,8 @@ function journeySteps(j) {
         (towards ? `<br>往 ${directionLabel(towards)} 方向` : '') +
         (stops ? `<br>共 ${stops} 個站` : ''),
       notices,
+      leg,
+      stopList: stopListHtml(leg, m),
       map: i === 0 ? mapLink(leg.origin) : '',
       say: `${fmtTime(dep)},在${speakName(leg.origin.name)}` + (plat ? `${plat.zh}` : '') +
         `,乘搭${line}${m.zh}` + (towards ? `,往 ${speakDirection(towards)} 方向` : '') +
@@ -676,6 +704,8 @@ function showJourney(j, goBack, live) {
       <div class="card">${steps.map((s) => `<div class="step"><div class="icon">${s.icon}</div>
         <div><div class="what">${s.what}</div><div class="detail">${s.detail}</div>${s.debug || ''}
         ${live && s.map ? `<a class="maplink" href="${esc(s.map)}" target="_blank" rel="noopener">🗺️ 地圖指路</a>` : ''}
+        ${s.stopList || ''}
+        ${live && s.leg && canTrack(s.leg) ? `<button class="btn track" data-track="${steps.indexOf(s)}">📍 上車後按這裡:還有幾個站</button>` : ''}
         ${(s.notices || []).map(noticeHtml).join('')}</div></div>`).join('')}
         <div class="step"><div class="icon">🏁</div><div class="what">${fmtTime(arrive)} 到達</div></div>
       </div>`, keepScroll);
@@ -692,6 +722,8 @@ function showJourney(j, goBack, live) {
       showSaying(true);
     };
     $app.querySelector('[data-remind]').onclick = () => remind(j, steps);
+    $app.querySelectorAll('[data-track]').forEach((b) => b.onclick = () =>
+      showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack, live)));
     fillNotices();
   };
   draw(false);
@@ -700,6 +732,76 @@ function showJourney(j, goBack, live) {
     const el = $app.querySelector('.leave');
     if (el) { const lt = leaveText(leave); el.className = `leave ${lt.cls}`; el.innerHTML = lt.text; }
   }, 15000));
+}
+
+// ---------- 還有幾個站: live stop countdown on the bus ----------
+// Uses the phone's GPS while the app is open on screen (iPhone pauses web apps when the screen locks,
+// so we ask iPhone to keep the screen on). The alert is visual: iPhone web apps can't vibrate.
+function canTrack(leg) {
+  const list = rideStops(leg);
+  return list.length >= 2 && list.every((st) => st.coord);
+}
+function metres(a, b) {   // a, b = [lat, lon]
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+// Highest stop index the bus has reached or gone past, given the current position.
+function stopsPassed(list, pos, passed) {
+  for (let k = passed + 1; k < list.length; k++) {
+    const atStop = metres(pos, list[k].coord) < 80;
+    // Past stop k: closer to stop k+1 than stop k is, and already away from stop k
+    const pastStop = k + 1 < list.length &&
+      metres(pos, list[k + 1].coord) < metres(list[k].coord, list[k + 1].coord) && metres(pos, list[k].coord) > 40;
+    if (atStop || pastStop) passed = k; else break;
+  }
+  return passed;
+}
+async function keepScreenOn() {
+  try { return await navigator.wakeLock.request('screen'); } catch (e) { return null; }
+}
+function showTracking(leg, goBack) {
+  clearTimers();
+  state.screen = 'tracking';
+  const m = modeOf(leg);
+  const list = rideStops(leg);
+  const target = list.length - 1;
+  let passed = 0, watchId = null, wake = null, lastFix = null;
+  const stop = () => {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    if (wake) wake.release().catch(() => {});
+    document.body.classList.remove('alert-bell', 'alert-off');
+  };
+  const draw = () => {
+    if (state.screen !== 'tracking') return;
+    const left = target - passed;
+    const bell = left === 1, here = left <= 0;
+    document.body.classList.toggle('alert-bell', bell);
+    document.body.classList.toggle('alert-off', here);
+    const big = here ? '📍 到站,請下車!' : bell ? (m.key === 'bus' ? '🔔 下一站下車<br>請按鐘!' : '下一站下車!') : `還有 ${left} 個站`;
+    const next = list[Math.min(passed + 1, target)];
+    render(`<button class="back" data-back>← 結束</button>
+      <div class="track-head">乘搭 <span class="badge m-${m.key}">${esc(lineName(leg))}</span> ${m.zh}</div>
+      <div class="track-big">${big}</div>
+      ${here ? '' : `<div class="track-row">下一站:<b>${placeLabel(next.full || next.name)}</b></div>`}
+      <div class="track-row">下車站:<b>${placeLabel(list[target].full || list[target].name)}</b></div>
+      <div class="small">${lastFix ? `定位準確度約 ${Math.round(lastFix)} 米・螢幕會保持開啟` : '定位中…請保持此畫面開啟'}</div>
+      <ol class="track-list">${list.map((st, k) => `<li class="${k <= passed ? 'done' : ''} ${k === target ? 'getoff' : ''} ${k === target - 1 ? 'bell' : ''}">
+        ${k === target ? '📍 ' : ''}${placeLabel(st.full || st.name)}</li>`).join('')}</ol>`, true);
+    $app.querySelector('[data-back]').onclick = () => { stop(); goBack(); };
+  };
+  if (!navigator.geolocation) { alert('這部電話不支援定位'); return goBack(); }
+  watchId = navigator.geolocation.watchPosition((p) => {
+    lastFix = p.coords.accuracy;
+    passed = stopsPassed(list, [p.coords.latitude, p.coords.longitude], passed);
+    draw();
+  }, () => {
+    lastFix = null;
+    draw();
+  }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  keepScreenOn().then((w) => { wake = w; });
+  draw();
 }
 
 // ---------- Read aloud in Cantonese ----------

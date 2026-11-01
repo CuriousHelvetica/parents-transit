@@ -115,3 +115,21 @@ input[type=date] {
 h1.title .en { display: block; font-size: 20px; color: #666; font-weight: 600; margin-top: 2px; }
 a.btn.uber { display: flex; flex-direction: column; gap: 4px; margin-top: 22px; text-decoration: none; color: var(--primary); border-color: var(--primary); text-align: center; }
 a.maplink { display: inline-block; margin-top: 8px; padding: 8px 14px; border-radius: 12px; border: 2px solid var(--primary); color: var(--primary); background: #fff; font-weight: 700; text-decoration: none; font-size: 20px; }
+details.stops { margin-top: 8px; }
+details.stops summary { color: var(--primary); font-weight: 700; cursor: pointer; }
+details.stops ol, ol.track-list { margin: 8px 0 0; padding-left: 28px; font-size: 19px; }
+details.stops li, ol.track-list li { padding: 3px 0; }
+li.bell { color: var(--primary); font-weight: 700; }
+li.getoff { color: var(--sage); font-weight: 800; }
+li.first { color: #666; }
+button.btn.track { margin-top: 10px; width: 100%; border-color: var(--primary); color: var(--primary); }
+.track-head { font-size: 24px; font-weight: 700; margin-top: 6px; }
+.track-big { font-size: 52px; font-weight: 900; text-align: center; margin: 24px 0; line-height: 1.25; color: var(--primary); }
+.track-row { font-size: 22px; margin: 6px 0; }
+ol.track-list li.done { color: #aaa; text-decoration: line-through; }
+/* Alerts: whole screen changes colour (iPhone web apps cannot vibrate) */
+body.alert-bell { animation: flash 1s infinite alternate; }
+body.alert-bell .track-big { color: #b3261e; }
+body.alert-off { background: var(--sage); }
+body.alert-off main, body.alert-off main * { color: #fff !important; }
+@keyframes flash { from { background: var(--cream); } to { background: #ffb4a2; } }

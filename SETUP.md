@@ -81,6 +81,12 @@ Below the destination buttons, **🔍 其他地點** opens a search box. Type a 
 ### Walking directions (🗺️ 地圖指路)
 For trips leaving **now**, each walking step (to a station, bus stop or the destination) has a **🗺️ 地圖指路** button. It opens **Apple Maps** with walking directions from where the phone is now to that exact stop. Check **Settings → Privacy & Security → Location Services → Maps → While Using the App**.
 
+### When to get off (顯示途經車站 / 還有幾個站)
+- Each ride step has **顯示途經車站**: the list of every stop with times. The stop before theirs is marked **🔔 下一站下車,請按鐘**, and their stop **📍 在此下車**.
+- For trips leaving **now**, buses (and trains) also have **📍 上車後按這裡:還有幾個站**. Tap it once on board: the screen shows **還有 N 個站**, crossing off stops using GPS. When the next stop is theirs the whole screen **flashes** with **🔔 下一站下車 請按鐘!**; at their stop it turns **green: 📍 到站,請下車!** Tap **← 結束** when done.
+- The app must stay **open on screen** during the ride (it keeps the screen on by itself on iOS 18.4 or later). iPhone web apps cannot vibrate, so the alert is visual only.
+- Worth trying once together on a short bus ride.
+
 ### Uber price (🚕 改搭 Uber? 查看價錢)
 For trips leaving **now**, a button at the bottom of the trip list (and on the "no route found" screen) opens the **Uber app** with pickup = their current location and the destination already filled in. Uber then shows the real price. Nothing is booked until they press Uber's own confirm button.
 - Check **Settings → Uber → Location → While Using the App** so Uber can find them.
