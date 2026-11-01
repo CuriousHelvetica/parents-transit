@@ -37,7 +37,16 @@ function sydneyParts(d) {
 }
 function fmtTime(d) {
   const p = sydneyParts(d);
-  return p.hour + ':' + p.minute;
+  return fmt12(+p.hour, p.minute);
+}
+// 13, '05' -> '下午 1:05'; 0, '30' -> '上午 12:30'; 12, '00' -> '下午 12:00'
+function fmt12(h, mm) {
+  return `${h < 12 ? '上午' : '下午'} ${h % 12 || 12}:${mm}`;
+}
+// '09:30' (from the time picker) -> '上午 9:30'
+function fmtHHMM(hhmm) {
+  const [h, mm] = hhmm.split(':');
+  return fmt12(+h, mm);
 }
 function minutesUntil(d) { return Math.round((d.getTime() - Date.now()) / 60000); }
 
@@ -304,7 +313,7 @@ function render(html, keepScroll) {
 
 function whenSummary(when) {
   if (when.mode !== 'later') return '現在出發';
-  return `${dayLabel(when.date)} ${when.time} ${when.arrive ? '前到達' : '出發'}`;
+  return `${dayLabel(when.date)} ${fmtHHMM(when.time)} ${when.arrive ? '前到達' : '出發'}`;
 }
 
 function showHome() {
@@ -470,7 +479,7 @@ function journeyCard(j, i) {
   let delay = '';
   if (firstRide) {
     const d = delayMin(firstRide.origin, 'departure');
-    if (d != null) delay = d > 0 ? `・<span class="late">第一程車延誤 ${d} 分鐘</span>` : `・<span class="ontime">準時</span>`;
+    if (d != null) delay = d > 0 ? `<div class="sub late">第一程車延誤 ${d} 分鐘</div>` : `<div class="sub ontime">準時</div>`;
   }
   const hasNotice = j.legs.some((l) => noticesOf(l).length);
   const badges = j.legs.map((l) => {
@@ -480,8 +489,9 @@ function journeyCard(j, i) {
   }).join(' › ');
   return `<button class="card tap" data-j="${i}">
     <div class="leave ${lt.cls}">${lt.text}</div>
-    <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達 (${total} 分鐘)</div>
-    <div class="sub">${changes ? `轉車 ${changes} 次` : '不用轉車'} ${delay}</div>
+    <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達</div>
+    <div class="sub">全程 ${total} 分鐘・${changes ? `轉車 ${changes} 次` : '不用轉車'}</div>
+    ${delay}
     ${hasNotice ? '<div class="sub late">⚠️ 有服務通知,請按入查看</div>' : ''}
     <div class="lines">${badges}</div>
   </button>`;
