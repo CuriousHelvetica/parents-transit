@@ -2,7 +2,7 @@
 
 // ---------- Storage (everything personal stays on this phone) ----------
 const STORE_KEY = 'parents-transit-v1';
-const TR_KEY = 'parents-transit-translations';
+const TR_KEY = 'parents-transit-translations-v2';
 
 function loadSettings() {
   try {
@@ -215,13 +215,54 @@ async function planTrip(origin, dest, when) {
 let translations = {};
 try { translations = JSON.parse(localStorage.getItem(TR_KEY)) || {}; } catch (e) { translations = {}; }
 const pendingTr = {};
+// Station names are swapped for [[1]], [[2]]… before translating, so the AI cannot
+// mistranslate them, then put back as "紅坊 Redfern" (Chinese + English).
+const PLACE_KEYS = Object.keys(ZH_NAMES).sort((a, b) => b.length - a.length);
+function reEscape(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function protectPlaces(en) {
+  const places = [];
+  let text = en;
+  PLACE_KEYS.forEach((name) => {
+    text = text.replace(new RegExp(`\\b${reEscape(name)}(\\s+Station)?\\b`, 'g'), (m, st) => {
+      places.push(`${ZH_NAMES[name]}${st ? '站' : ''} ${name}`);
+      return `[[${places.length}]]`;
+    });
+  });
+  return { text, places };
+}
+function restorePlaces(zh, places) {
+  const used = new Set();
+  let out = zh.replace(/[\[［]{2}\s*(\d+)\s*[\]］]{2}/g, (m, i) => {
+    const label = places[+i - 1];
+    if (!label) return m;
+    used.add(+i - 1);
+    return ` ${label} `;
+  }).replace(/ {2,}/g, ' ').replace(/ ([,。,、:;!?)」])/g, '$1').replace(/([，。、：；（「,]) /g, '$1').trim();
+  // Safety net: if the AI dropped or broke a placeholder, list the places separately.
+  const missing = places.filter((_, i) => !used.has(i));
+  if (missing.length || /\[\[\d+\]\]/.test(out)) {
+    out = out.replace(/[\[［]{2}\s*\d+\s*[\]］]{2}/g, '');
+    out += ` (提及地點:${[...new Set(places)].join('、')})`;
+  }
+  return out;
+}
+// For read-aloud: say only the Chinese name.
+function speakable(text) {
+  let out = text;
+  PLACE_KEYS.forEach((name) => {
+    out = out.replace(new RegExp(`(${reEscape(ZH_NAMES[name])}站?) ${reEscape(name)}\\b`, 'g'), '$1');
+  });
+  return out;
+}
+
 function translate(text) {
   if (translations[text]) return Promise.resolve(translations[text]);
   if (!pendingTr[text]) {
-    pendingTr[text] = fetch(`${WORKER_URL}/translate?${new URLSearchParams({ text })}`)
+    const { text: masked, places } = protectPlaces(text);
+    pendingTr[text] = fetch(`${WORKER_URL}/translate?${new URLSearchParams({ text: masked })}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const zh = d && d.zh;
+        const zh = d && d.zh ? restorePlaces(d.zh, places) : null;
         if (zh) {
           translations[text] = zh;
           const keys = Object.keys(translations);
@@ -505,7 +546,7 @@ function showJourney(j, goBack) {
   const arrive = arrTime(j.legs[j.legs.length - 1].destination);
   const steps = journeySteps(j);
   const sayText = () => steps.map((s) => s.say +
-    (s.notices || []).map((n) => (translations[n.key] ? `服務通知:${translations[n.key]}` : '')).join('')).join(' ');
+    (s.notices || []).map((n) => (translations[n.key] ? `服務通知:${speakable(translations[n.key])}` : '')).join('')).join(' ');
   const draw = (keepScroll) => {
     const lt = leaveText(leave);
     render(`<button class="back" data-back>← 返回</button>
