@@ -2,6 +2,8 @@
 
 The version is shown at the bottom of **⚙️ 設定** (e.g. `版本 v1.0 · 2026-11-01`). If a phone shows an older version than the latest below, close the app fully (swipe it away) and open it again.
 
+Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …); bigger new features bump the middle number (v1.3, v1.4 …).
+
 ## What the app does
 
 **Main screen**
@@ -36,7 +38,7 @@ The version is shown at the bottom of **⚙️ 設定** (e.g. `版本 v1.0 · 20
 ## History
 
 <!-- Add new versions here (below this note), newest first:
-### vX.Y — YYYY-MM-DD
+### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
 
