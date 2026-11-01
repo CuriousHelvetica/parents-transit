@@ -108,7 +108,7 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
 1. Open **爸媽出行**.
 2. Answer three questions:
    - **從哪裡出發?** (where from) — 🏠 家 is already selected. Tap it to choose 📍 現在位置 (where I am now), a station, or 🔍 其他地點.
-   - **甚麼時候?** (when) — **⏱️ 現在** (now) or **📅 預先計劃** (plan ahead: 今天 / 明天 / 後天 or another date, 出發時間 leave at or 到達時間 arrive by, then the time).
+   - **甚麼時候?** (when) — **⏱️ 現在** (now), or **📅 預先計劃** (plan ahead), which opens its own page: 哪一天? (today / tomorrow / day after, or another date), 出發還是到達? (leave at / arrive by), 幾點? (time). **✓ 確定** saves, **✕ 取消** discards. The button then shows the plan, e.g. 「明天 早上 9:30 出發」.
    - **去哪裡?** (where to) — tap to choose 🏠 回家, a station, or 🔍 其他地點.
 3. Tap **🔍 搜尋路線** (search routes).
 4. The top card says **「X 分鐘後出門」** (leave in X minutes). **🔁 最少轉車 / ⚡ 最快** changes the order. Tap a card for step-by-step directions.

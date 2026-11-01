@@ -42,6 +42,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.3.1 — 2026-11-01
+- 📅 預先計劃 opens its own page (哪一天? / 出發還是到達? / 幾點? and a summary), with ✕ 取消 (discard) and ✓ 確定 (save). Defaults to today, next round hour. The main-screen button then shows the plan, e.g. 「明天 早上 9:30 出發」; ⏱️ 現在 stays one tap.
+- Fixed the 📍 現在位置 button in the start list (was half width, text cut off).
+
 ### v1.3 — 2026-11-01
 - Simpler main screen: three questions, then search. 從哪裡出發? and 去哪裡? are one line each; tapping opens a full list (家 / 現在位置 or 回家, the saved places in 設定 order, 🔍 其他地點 at the bottom of both). Then 🔍 搜尋路線.
 - Any saved station (or searched place) can now be the starting point, not only 家 / 現在位置.

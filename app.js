@@ -512,27 +512,10 @@ function showHome() {
   state.screen = 'home';
   const now = new Date();
   const w = state.when;
-  const dayChips = [0, 1, 2].map((o) => {
-    const ymd = sydneyDate(o);
-    const [, m, d] = ymd.split('-').map(Number);
-    const wd = WEEKDAYS[new Date(Date.UTC(...ymd.split('-').map((x, k) => (k === 1 ? x - 1 : +x)))).getUTCDay()];
-    return `<button data-day="${ymd}" class="${w.date === ymd ? 'on' : ''}">${['今天', '明天', '後天'][o]}<br><span class="small">${m}月${d}日<br>星期${wd}</span></button>`;
-  }).join('');
-  const otherDay = w.mode === 'later' && ![0, 1, 2].some((o) => sydneyDate(o) === w.date);
-  const laterHtml = w.mode !== 'later' ? '' : `
-    <div class="toggle three">${dayChips}</div>
-    <div class="bar"><label class="grow small">或選擇其他日子
-      <input type="date" id="otherDate" min="${sydneyDate(0)}" value="${otherDay ? w.date : ''}"></label></div>
-    <div class="toggle">
-      <button data-arrive="0" class="${w.arrive ? '' : 'on'}">🚶 出發時間</button>
-      <button data-arrive="1" class="${w.arrive ? 'on' : ''}">🏁 到達時間</button>
-    </div>
-    ${timePickerHtml(w.time)}
-    <div class="sub" id="whenSummary">${esc(whenSummary(w))}</div>`;
   render(`
     <div class="head">
       <h1 class="title">爸媽出行<span class="en">Sydney Trip Planner</span></h1>
-      <button class="here" id="here" aria-label="現在位置"></button>
+      <button class="herebox" id="here" aria-label="你在"></button>
     </div>
     <div class="sub">現在 ${fmtTime(now)}・${dayLabel(sydneyDate(0)).split(' ').slice(1).join(' ')}</div>
     <h2>從哪裡出發?</h2>
@@ -540,9 +523,9 @@ function showHome() {
     <h2>甚麼時候?</h2>
     <div class="toggle">
       <button data-when="now" class="${w.mode === 'now' ? 'on' : ''}">⏱️ 現在</button>
-      <button data-when="later" class="${w.mode === 'later' ? 'on' : ''}">📅 預先計劃</button>
+      <button data-when="later" class="${w.mode === 'later' ? 'on' : ''}">📅 預先計劃${
+        w.mode === 'later' ? `<span class="plan-sum">${esc(planShort(w))}</span>` : ''}</button>
     </div>
-    ${laterHtml}
     <h2>去哪裡?</h2>
     <button class="choice ${state.to ? '' : 'empty'}" data-row="to">${choiceLabel(state.to, '請選擇目的地')}<span class="chev">›</span></button>
     <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
@@ -553,33 +536,65 @@ function showHome() {
     if (!state.to) return showPicker('to');
     showTrips(asPlace(state.from), asPlace(state.to), { ...state.when }, { oneOff: !!state.to.searched });
   };
-  $app.querySelectorAll('[data-when]').forEach((b) => b.onclick = () => {
-    if (b.dataset.when === 'now') state.when = { mode: 'now' };
-    else if (state.when.mode !== 'later') {
-      // Default: tomorrow, next round hour from now
-      const p = sydneyParts(new Date());
-      state.when = { mode: 'later', date: sydneyDate(1), time: `${String((+p.hour + 1) % 24).padStart(2, '0')}:00`, arrive: false };
-    }
-    showHome();
-  });
-  $app.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => { state.when.date = b.dataset.day; showHome(); });
-  $app.querySelectorAll('[data-arrive]').forEach((b) => b.onclick = () => { state.when.arrive = b.dataset.arrive === '1'; showHome(); });
-  // iPhone fires a change on every turn of the picker wheel, so only record the value here and
-  // update the summary line; redrawing the screen would close the picker before it's confirmed.
-  const updateSummary = () => { $app.querySelector('#whenSummary').textContent = whenSummary(state.when); };
-  const other = $app.querySelector('#otherDate');
-  if (other) {
-    other.onchange = () => { if (other.value) { state.when.date = other.value; updateSummary(); } };
-    other.onblur = () => showHome();   // after the picker closes: refresh the 今天/明天/後天 highlight
-  }
-  const tp = $app.querySelector('.timepick');
-  if (tp) tp.querySelectorAll('select').forEach((sel) => sel.onchange = () => {
-    state.when.time = timeFromPicker(tp);
-    updateSummary();
-  });
+  $app.querySelector('[data-when="now"]').onclick = () => { state.when = { mode: 'now' }; showHome(); };
+  $app.querySelector('[data-when="later"]').onclick = () => showPlanPage();
   $app.querySelector('[data-settings]').onclick = showSettings;
   updateHereBox();
   refreshHere(false);
+}
+
+// ---------- 📅 預先計劃 page ----------
+// Short summary for the main-screen button: 「明天 早上 9:30 出發」 / 「11月20日 晚上 7:00 前到達」
+function planShort(w) {
+  const rel = { [sydneyDate(0)]: '今天', [sydneyDate(1)]: '明天', [sydneyDate(2)]: '後天' }[w.date];
+  const [, m, d] = w.date.split('-').map(Number);
+  return `${rel || `${m}月${d}日`} ${fmtHHMM(w.time)} ${w.arrive ? '前到達' : '出發'}`;
+}
+// Default: today at the next round hour, leaving (late at night that hour is tomorrow).
+function defaultPlan() {
+  const p = sydneyParts(new Date());
+  const h = +p.hour + 1;
+  return { mode: 'later', date: sydneyDate(h >= 24 ? 1 : 0), time: `${String(h % 24).padStart(2, '0')}:00`, arrive: false };
+}
+// Works on a copy: ✕ 取消 discards it, ✓ 確定 saves it.
+function showPlanPage(draftIn) {
+  clearTimers();
+  state.screen = 'plan';
+  const draft = draftIn || (state.when.mode === 'later' ? { ...state.when } : defaultPlan());
+  const dayChips = [0, 1, 2].map((o) => {
+    const ymd = sydneyDate(o);
+    const [, m, d] = ymd.split('-').map(Number);
+    const wd = WEEKDAYS[new Date(Date.UTC(...ymd.split('-').map((x, k) => (k === 1 ? x - 1 : +x)))).getUTCDay()];
+    return `<button data-day="${ymd}" class="${draft.date === ymd ? 'on' : ''}">${['今天', '明天', '後天'][o]}<br><span class="small">${m}月${d}日<br>星期${wd}</span></button>`;
+  }).join('');
+  const otherDay = ![0, 1, 2].some((o) => sydneyDate(o) === draft.date);
+  render(`<button class="back" data-cancel>✕ 取消</button>
+    <h1>甚麼時候?</h1>
+    <h2>哪一天?</h2>
+    <div class="toggle three">${dayChips}</div>
+    <div class="bar"><label class="grow small">或選擇其他日子
+      <input type="date" id="otherDate" min="${sydneyDate(0)}" value="${otherDay ? draft.date : ''}"></label></div>
+    <h2>出發還是到達?</h2>
+    <div class="toggle">
+      <button data-arrive="0" class="${draft.arrive ? '' : 'on'}">🚶 出發時間</button>
+      <button data-arrive="1" class="${draft.arrive ? 'on' : ''}">🏁 到達時間</button>
+    </div>
+    <h2>幾點?</h2>
+    ${timePickerHtml(draft.time)}
+    <div class="card plan-card" id="whenSummary">${esc(whenSummary(draft))}</div>
+    <div class="bar"><button class="btn primary big" data-confirm>✓ 確定</button></div>`, true);
+  $app.querySelector('[data-cancel]').onclick = showHome;
+  $app.querySelector('[data-confirm]').onclick = () => { state.when = { ...draft, mode: 'later' }; showHome(); };
+  $app.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => { draft.date = b.dataset.day; showPlanPage(draft); });
+  $app.querySelectorAll('[data-arrive]').forEach((b) => b.onclick = () => { draft.arrive = b.dataset.arrive === '1'; showPlanPage(draft); });
+  // iPhone fires a change on every turn of a picker wheel, so only record the value and update the
+  // summary; redrawing the page would close the picker before it's confirmed.
+  const updateSummary = () => { $app.querySelector('#whenSummary').textContent = whenSummary(draft); };
+  const other = $app.querySelector('#otherDate');
+  other.onchange = () => { if (other.value) { draft.date = other.value; updateSummary(); } };
+  other.onblur = () => showPlanPage(draft);   // after the picker closes: refresh the 今天/明天/後天 highlight
+  const tp = $app.querySelector('.timepick');
+  tp.querySelectorAll('select').forEach((sel) => sel.onchange = () => { draft.time = timeFromPicker(tp); updateSummary(); });
 }
 
 // opts.oneOff: a place found with 🔍 其他地點 (not one of the saved buttons)
