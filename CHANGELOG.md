@@ -36,7 +36,7 @@ The version is shown at the bottom of **⚙️ 設定** (e.g. `版本 v1.0 · 20
 ## History
 
 <!-- Add new versions here (below this note), newest first:
-### v1.1 — YYYY-MM-DD
+### vX.Y — YYYY-MM-DD
 - What changed
 -->
 
