@@ -163,3 +163,6 @@ button.herebox { display: block; width: 100%; text-align: left; background: none
 .here-line .en { font-size: 15px; }
 .here-street { font-size: 16px; color: #666; overflow-wrap: anywhere; }
 .here-debug { font-size: 13px; color: #888; overflow-wrap: anywhere; }
+details.notices { margin-top: 8px; }
+details.notices summary { color: #8a5a00; font-weight: 700; cursor: pointer; font-size: 18px; }
+.notice.severe { background: #fdecea; border-left-color: #b3261e; }

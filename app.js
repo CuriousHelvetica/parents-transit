@@ -175,7 +175,9 @@ function noticesOf(leg) {
     const title = stripHtml(x.subtitle || x.title);
     const body = stripHtml(x.content);
     const en = (body && body !== title ? `${title}. ${body}` : title).slice(0, 700);
-    return { key: en, en };
+    // Transport for NSW gives each notice a priority (veryLow … veryHigh); only high ones stay open
+    const priority = String(x.priority || '');
+    return { key: en, en, priority, severe: /^(high|veryhigh|urgent)$/i.test(priority) };
   }).filter((n) => n.en && !seen.has(n.key) && seen.add(n.key)).slice(0, 3);
 }
 
@@ -348,11 +350,20 @@ function translate(text) {
   }
   return pendingTr[text];
 }
-function noticeHtml(n) {
+// Severe notices stay open; routine ones (renovations etc.) fold away under one line, like the stop list.
+function noticesHtml(list) {
+  if (!list || !list.length) return '';
+  const severe = list.filter((n) => n.severe), routine = list.filter((n) => !n.severe);
+  return severe.map((n) => noticeHtml(n, true)).join('') + (routine.length
+    ? `<details class="notices"><summary>⚠️ 服務通知 (${routine.length}) — 按此查看</summary>${routine.map((n) => noticeHtml(n)).join('')}</details>`
+    : '');
+}
+function noticeHtml(n, severe = false) {
   const zh = translations[n.key];
-  return `<div class="notice" data-notice="${esc(n.key)}">⚠️ <b>服務通知</b>:
+  return `<div class="notice${severe ? ' severe' : ''}" data-notice="${esc(n.key)}" data-severe="${severe ? 1 : ''}">⚠️ <b>${severe ? '重要服務通知' : '服務通知'}</b>:
     ${zh ? esc(zh) : '<span class="small">翻譯中…</span>'}
-    <details><summary class="small">英文原文</summary><div class="small">${esc(n.en)}</div></details></div>`;
+    <details><summary class="small">英文原文</summary><div class="small">${esc(n.en)}</div></details>
+    ${DEBUG ? `<div class="small">[debug] priority=${esc(n.priority || '(none)')}</div>` : ''}</div>`;
 }
 // Fill in translations after the page is drawn.
 function fillNotices() {
@@ -362,7 +373,8 @@ function fillNotices() {
     translate(key).then((zh) => {
       if (!el.isConnected) return;
       const open = el.querySelector('details') && el.querySelector('details').open;
-      el.outerHTML = zh ? noticeHtml({ key, en: key }) : noticeHtml({ key, en: key }).replace('翻譯中…', '暫時無法翻譯,請看英文原文');
+      const sev = !!el.dataset.severe;
+      el.outerHTML = zh ? noticeHtml({ key, en: key }, sev) : noticeHtml({ key, en: key }, sev).replace('翻譯中…', '暫時無法翻譯,請看英文原文');
       if (open) { const d = $app.querySelector(`[data-notice="${CSS.escape(key)}"] details`); if (d) d.open = true; }
     });
   });
@@ -738,8 +750,10 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   };
   const load = async () => {
     try {
-      // Hide trips that left more than a minute ago
-      journeys = (await planTrip(origin, dest, when)).filter((j) => minutesUntil(depTime(j.legs[0].origin)) >= -1);
+      // Hide trips that left more than a minute ago (after adding the extra walking time from home)
+      journeys = (await planTrip(origin, dest, when))
+        .map((j) => (originPlace === settings.home ? slowerHomeWalk(j) : j))
+        .filter((j) => minutesUntil(depTime(j.legs[0].origin)) >= -1);
       draw();
     } catch (e) {
       if (!journeys && state.screen === 'trips') showError(header, '無法連接伺服器,請檢查網絡。(' + e.message + ')', '', retry);
@@ -749,6 +763,20 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   // Live times matter for trips leaving soon; planned trips change less often.
   timers.push(setInterval(load, when.mode === 'now' ? 60000 : 300000));
   timers.push(setInterval(draw, 15000));
+}
+
+// They walk slowly: the first walk from 家 gets HOME_WALK_EXTRA_MIN more minutes, so they leave earlier
+// and still catch the same bus or train (its time doesn't change).
+const HOME_WALK_EXTRA_MIN = 5;
+function slowerHomeWalk(j) {
+  const first = j.legs[0];
+  if (!first || !modeOf(first).walk || j.legs.length < 2) return j;
+  const extra = HOME_WALK_EXTRA_MIN * 60000;
+  const earlier = (t) => (t ? new Date(new Date(t).getTime() - extra).toISOString() : t);
+  const origin = { ...first.origin,
+    departureTimePlanned: earlier(first.origin.departureTimePlanned),
+    departureTimeEstimated: earlier(first.origin.departureTimeEstimated) };
+  return { ...j, legs: [{ ...first, origin, duration: (first.duration || 0) + HOME_WALK_EXTRA_MIN * 60 }, ...j.legs.slice(1)] };
 }
 
 function changesOf(j) { return Math.max(0, j.legs.filter((l) => !modeOf(l).walk).length - 1); }
@@ -823,7 +851,9 @@ function journeyCard(j, i) {
     const d = delayMin(firstRide.origin, 'departure');
     if (d != null) delay = d > 0 ? `<div class="sub late">第一程車延誤 ${d} 分鐘</div>` : `<div class="sub ontime">準時</div>`;
   }
-  const hasNotice = j.legs.some((l) => noticesOf(l).length);
+  const allNotices = j.legs.flatMap((l) => noticesOf(l));
+  const noticeLine = allNotices.some((n) => n.severe) ? '<div class="sub late">⚠️ 有重要服務通知,請按入查看</div>'
+    : allNotices.length ? '<div class="sub">ℹ️ 有一般服務通知</div>' : '';
   const badges = j.legs.map((l) => {
     const m = modeOf(l);
     if (m.walk) return `<span class="badge m-walk">🚶${Math.max(1, Math.round((l.duration || 0) / 60))}'</span>`;
@@ -834,7 +864,7 @@ function journeyCard(j, i) {
     <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達</div>
     <div class="sub">全程 ${total} 分鐘・${changes ? `轉車 ${changes} 次` : '不用轉車'}</div>
     ${delay}
-    ${hasNotice ? '<div class="sub late">⚠️ 有服務通知,請按入查看</div>' : ''}
+    ${noticeLine}
     <div class="lines">${badges}</div>
   </button>`;
 }
@@ -955,7 +985,7 @@ function showJourney(j, goBack, live) {
         ${live && s.map ? `<a class="maplink" href="${esc(s.map)}" target="_blank" rel="noopener">🗺️ 地圖指路</a>` : ''}
         ${s.stopList || ''}
         ${live && s.leg && canTrack(s.leg) ? `<button class="btn track" data-track="${steps.indexOf(s)}">📍 上車後按這裡:還有幾個站</button>` : ''}
-        ${(s.notices || []).map(noticeHtml).join('')}</div></div>`).join('')}
+        ${noticesHtml(s.notices)}</div></div>`).join('')}
         <div class="step"><div class="icon">🏁</div><div class="what">${fmtTime(arrive)} 到達</div></div>
       </div>`, keepScroll);
     $app.querySelector('[data-back]').onclick = () => { stopSpeaking(); goBack(); };
@@ -1123,6 +1153,11 @@ function speak(text, onDone) {
   speakDone = done;
   u.onend = done;
   u.onerror = done;
+  // iPhone often clips the start of the first thing it says: a short pause goes first, so only the pause is lost
+  const warm = new SpeechSynthesisUtterance('，，');
+  warm.lang = 'zh-HK';
+  if (v) warm.voice = v;
+  speechSynthesis.speak(warm);
   speechSynthesis.speak(u);
 }
 function isSpeaking() { return speakDone !== null; }

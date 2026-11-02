@@ -42,6 +42,11 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.3.7 — 2026-11-02
+- Service notices: routine ones fold away under 「⚠️ 服務通知 (N) — 按此查看」; only high-priority ones stay open (red, 重要服務通知). Trip cards say 「⚠️ 有重要服務通知」 or a quiet 「ℹ️ 有一般服務通知」. ?debug=1 shows each notice's priority.
+- Walking from 家: the first walk gets 5 extra minutes (e.g. 7 → 12), so they leave 5 minutes earlier for the same bus/train.
+- 🔊 朗讀: a short pause is spoken first so iPhone no longer clips the first word.
+
 ### v1.3.6 — 2026-11-02
 - Header card: 爸媽出行 only (English title removed); date line 「現在 11月2日 星期一・晚上 7:30」; 📍 location moved under a thin divider with the suburb on one line and the street on the next, so long names no longer squeeze the title.
 
