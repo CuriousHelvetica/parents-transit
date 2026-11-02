@@ -34,7 +34,7 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 14px 40px; }
 h1 { font-size: 32px; margin: 8px 0 4px; }
 h2 { font-size: 24px; margin: 20px 0 8px; color: #333; }
 .sub { color: #555; font-size: 18px; }
-.en { color: #666; font-size: 0.75em; font-weight: normal; }
+.en { color: #555; font-size: 1em; font-weight: normal; }
 button { font: inherit; color: inherit; border: none; cursor: pointer; }
 
 .toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -48,7 +48,7 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
   min-height: 92px; padding: 12px 8px; border-radius: 16px; background: var(--primary); color: #fff;
   font-size: 24px; font-weight: 700; display: flex; flex-direction: column; justify-content: center;
 }
-.place .en { color: var(--primary-en); font-size: 16px; }
+.place .en { color: var(--primary-en); font-size: 20px; }
 .place.home { background: var(--home); }
 .place.home .en { color: var(--home-en); }
 
@@ -114,7 +114,7 @@ input[type=date] {
 .btn.other .en { color: var(--primary); opacity: .8; }
 h1.title .en { display: block; font-size: 20px; color: #666; font-weight: 600; margin-top: 2px; }
 a.btn.uber { display: flex; flex-direction: column; gap: 4px; margin-top: 22px; text-decoration: none; color: var(--primary); border-color: var(--primary); text-align: center; }
-a.maplink { display: inline-block; margin-top: 8px; padding: 8px 14px; border-radius: 12px; border: 2px solid var(--primary); color: var(--primary); background: #fff; font-weight: 700; text-decoration: none; font-size: 20px; }
+.maplink { display: inline-block; margin-top: 8px; padding: 8px 14px; border-radius: 12px; border: 2px solid var(--primary); color: var(--primary); background: #fff; font-weight: 700; text-decoration: none; font-size: 20px; }
 details.stops { margin-top: 8px; }
 details.stops summary { color: var(--primary); font-weight: 700; cursor: pointer; }
 details.stops ol, ol.track-list { margin: 8px 0 0; padding-left: 28px; font-size: 19px; }
@@ -144,7 +144,7 @@ button.choice { width: 100%; display: flex; justify-content: space-between; alig
 button.choice.empty { border-style: dashed; }
 button.choice .placeholder { color: #888; font-weight: 600; }
 button.choice .chev { font-size: 32px; color: var(--primary); line-height: 1; }
-button.choice .en { font-size: 17px; }
+button.choice .en { font-size: 20px; }
 .btn.big { font-size: 26px; padding: 18px; margin-top: 10px; }
 .place.here { background: var(--slate); }
 
@@ -160,9 +160,13 @@ h2 .num { display: inline-flex; align-items: center; justify-content: center; wi
 button.herebox { display: block; width: 100%; text-align: left; background: none; margin-top: 10px; padding: 10px 0 0; border-top: 2px solid var(--beige); border-radius: 0; line-height: 1.35; }
 .here-line { font-size: 18px; overflow-wrap: anywhere; }
 .here-line b { font-size: 20px; color: var(--slate); }
-.here-line .en { font-size: 15px; }
+.here-line .en { font-size: 18px; }
 .here-street { font-size: 16px; color: #666; overflow-wrap: anywhere; }
 .here-debug { font-size: 13px; color: #888; overflow-wrap: anywhere; }
 details.notices { margin-top: 8px; }
-details.notices summary { color: #8a5a00; font-weight: 700; cursor: pointer; font-size: 18px; }
+details.notices summary { color: #777; font-weight: 600; cursor: pointer; font-size: 18px; }
 .notice.severe { background: #fdecea; border-left-color: #b3261e; }
+/* Live buttons before the 30-minute window: greyed out with the reason */
+.maplink.off, .btn.track:disabled, .btn.uber.off { opacity: .45; cursor: default; }
+.offnote { font-size: 15px; color: #777; margin-top: 2px; }
+.nowrap { white-space: nowrap; }

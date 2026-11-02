@@ -730,7 +730,9 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   let journeys = null;
   const draw = () => {
     if (state.screen !== 'trips' || !journeys) return;
-    const uber = when.mode === 'now' ? uberBlock(destPlace, journeys) : '';
+    // Uber: available when a trip leaves within 30 minutes (or, with no trips found, when searching for now)
+    const soon = journeys.length ? journeys.some((jj) => liveNow(depTime(jj.legs[0].origin))) : when.mode === 'now';
+    const uber = uberBlock(destPlace, journeys, soon);
     if (!journeys.length) return showError(header, '找不到路線。請改一下時間,或稍後再試。', uber, retry);
     const sort = settings.sort || 'changes';
     const sorted = sortJourneys(journeys, sort, when);
@@ -746,7 +748,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     });
     wireSave();
     $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts), when.mode === 'now'));
+      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts)));
   };
   const load = async () => {
     try {
@@ -813,7 +815,8 @@ function uberLink(destPlace, journeys) {
   q.set('dropoff[formatted_address]', /NSW/.test(name) ? name : `${name}, NSW`);
   return `https://m.uber.com/ul/?${q}`;
 }
-function uberBlock(destPlace, journeys) {
+function uberBlock(destPlace, journeys, active = true) {
+  if (!active) return `<div class="btn uber off">🚕 改搭 Uber? 查看價錢<span class="small">${LIVE_NOTE}</span></div>`;
   return `<a class="btn uber" href="${esc(uberLink(destPlace, journeys))}" target="_blank" rel="noopener">
     🚕 改搭 Uber? 查看價錢
     <span class="small">會打開 Uber app,起點用你現在的位置,目的地已經填好。按確認才會叫車。</span></a>`;
@@ -934,10 +937,10 @@ function journeySteps(j) {
       debug: debugTag(leg),
       what: `${fmtTime(dep)} 乘搭 <span class="badge m-${m.key}">${esc(line)}</span> ${m.zh}` +
         (d > 0 ? ` <span class="late">延誤 ${d} 分鐘</span>` : ''),
-      detail: `在 ${placeLabel(leg.origin.name)} 上車` +
-        (plat ? `,<b>${esc(plat.zh)}</b> <span class="en">${esc(plat.en)}</span>` : '') +
+      detail: `在 ${placeLabel(leg.origin.name)} <span class="nowrap">上車</span>` +
+        (plat ? `,<span class="nowrap"><b>${esc(plat.zh)}</b> <span class="en">${esc(plat.en)}</span></span>` : '') +
         (m.key === 'bus' && streetOf(leg.origin.name) ? `<br><span class="en">${esc(streetOf(leg.origin.name))}</span>` : '') +
-        (towards ? `<br>往 ${directionLabel(towards)} 方向` : '') +
+        (towards ? `<br>往 ${directionLabel(towards)} <span class="nowrap">方向</span>` : '') +
         (stops ? `<br>共 ${stops} 個站` : ''),
       notices,
       leg,
@@ -959,8 +962,14 @@ function journeySteps(j) {
   return steps;
 }
 
-// live: trip leaves now, so walking directions from the phone's location make sense
-function showJourney(j, goBack, live) {
+// 🗺️ 地圖指路, 📍 還有幾個站 and 🚕 Uber use the phone's location (or today's price), so they are
+// available from LIVE_WINDOW_MIN minutes before departure, however the trip was searched; before that
+// they are shown greyed out with the reason, so nothing seems to vanish.
+const LIVE_WINDOW_MIN = 30;
+const LIVE_NOTE = `出發前 ${LIVE_WINDOW_MIN} 分鐘才可使用`;
+function liveNow(leave) { return minutesUntil(leave) <= LIVE_WINDOW_MIN; }
+
+function showJourney(j, goBack) {
   clearTimers();
   state.screen = 'journey';
   const leave = depTime(j.legs[0].origin);
@@ -968,8 +977,10 @@ function showJourney(j, goBack, live) {
   const steps = journeySteps(j);
   // Read only the trip steps, not the service notices.
   const sayText = () => steps.map((s) => s.say).join(' ');
+  let live = liveNow(leave);
   const draw = (keepScroll) => {
     const lt = leaveText(leave);
+    live = liveNow(leave);
     render(`<button class="back" data-back>← 返回</button>
       <div class="card">
         <div class="leave ${lt.cls}">${lt.text}</div>
@@ -982,9 +993,11 @@ function showJourney(j, goBack, live) {
       </div>
       <div class="card">${steps.map((s) => `<div class="step"><div class="icon">${s.icon}</div>
         <div><div class="what">${s.what}</div><div class="detail">${s.detail}</div>${s.debug || ''}
-        ${live && s.map ? `<a class="maplink" href="${esc(s.map)}" target="_blank" rel="noopener">🗺️ 地圖指路</a>` : ''}
+        ${!s.map ? '' : live ? `<a class="maplink" href="${esc(s.map)}" target="_blank" rel="noopener">🗺️ 地圖指路</a>`
+          : `<span class="maplink off">🗺️ 地圖指路</span><div class="offnote">${LIVE_NOTE}</div>`}
         ${s.stopList || ''}
-        ${live && s.leg && canTrack(s.leg) ? `<button class="btn track" data-track="${steps.indexOf(s)}">📍 上車後按這裡:還有幾個站</button>` : ''}
+        ${!(s.leg && canTrack(s.leg)) ? '' : live ? `<button class="btn track" data-track="${steps.indexOf(s)}">📍 上車後按這裡:還有幾個站</button>`
+          : `<button class="btn track" disabled>📍 上車後按這裡:還有幾個站</button><div class="offnote">${LIVE_NOTE}</div>`}
         ${noticesHtml(s.notices)}</div></div>`).join('')}
         <div class="step"><div class="icon">🏁</div><div class="what">${fmtTime(arrive)} 到達</div></div>
       </div>`, keepScroll);
@@ -1002,12 +1015,13 @@ function showJourney(j, goBack, live) {
     };
     if (FEATURE_REMINDER) $app.querySelector('[data-remind]').onclick = () => remind(j, steps);
     $app.querySelectorAll('[data-track]').forEach((b) => b.onclick = () =>
-      showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack, live)));
+      showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack)));
     fillNotices();
   };
   draw(false);
-  // Redraw only the countdown, so open notices stay open.
+  // Redraw only the countdown, so open notices stay open — unless the live buttons just became available.
   timers.push(setInterval(() => {
+    if (liveNow(leave) !== live) return draw(true);
     const el = $app.querySelector('.leave');
     if (el) { const lt = leaveText(leave); el.className = `leave ${lt.cls}`; el.innerHTML = lt.text; }
   }, 15000));

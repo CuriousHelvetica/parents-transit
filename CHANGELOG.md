@@ -42,6 +42,11 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.3.8 — 2026-11-02
+- 🗺️ 地圖指路, 📍 還有幾個站 and 🚕 Uber are available from 30 minutes before departure, however the trip was searched (現在 or 預先計劃); earlier they show greyed out with 「出發前 30 分鐘才可使用」, and switch on by themselves when the time comes.
+- Folded service notices line is now plain grey, so only red important notices stand out.
+- English names shown the same size as the Chinese (slightly larger English on the big buttons too).
+
 ### v1.3.7 — 2026-11-02
 - Service notices: routine ones fold away under 「⚠️ 服務通知 (N) — 按此查看」; only high-priority ones stay open (red, 重要服務通知). Trip cards say 「⚠️ 有重要服務通知」 or a quiet 「ℹ️ 有一般服務通知」. ?debug=1 shows each notice's priority.
 - Walking from 家: the first walk gets 5 extra minutes (e.g. 7 → 12), so they leave 5 minutes earlier for the same bus/train.
