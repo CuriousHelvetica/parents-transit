@@ -748,7 +748,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     });
     wireSave();
     $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts)));
+      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts), journeys));
   };
   const load = async () => {
     try {
@@ -969,7 +969,8 @@ const LIVE_WINDOW_MIN = 30;
 const LIVE_NOTE = `出發前 ${LIVE_WINDOW_MIN} 分鐘才可使用`;
 function liveNow(leave) { return minutesUntil(leave) <= LIVE_WINDOW_MIN; }
 
-function showJourney(j, goBack) {
+// others: all trips in the list, so the countdown can tell which service they actually boarded
+function showJourney(j, goBack, others = []) {
   clearTimers();
   state.screen = 'journey';
   const leave = depTime(j.legs[0].origin);
@@ -1015,7 +1016,7 @@ function showJourney(j, goBack) {
     };
     if (FEATURE_REMINDER) $app.querySelector('[data-remind]').onclick = () => remind(j, steps);
     $app.querySelectorAll('[data-track]').forEach((b) => b.onclick = () =>
-      showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack)));
+      showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack, others), others));
     fillNotices();
   };
   draw(false);
@@ -1070,13 +1071,48 @@ const WORST_USABLE_ACCURACY = 300;   // metres; readings worse than this are ign
 async function keepScreenOn() {
   try { return await navigator.wakeLock.request('screen'); } catch (e) { return null; }
 }
-function showTracking(leg, goBack) {
+// ---------- Which service did they actually board? ----------
+// Same line, different time (one train earlier or later). GPS shows when the vehicle really left the
+// boarding stop; the stop times are then shifted to match, so the "not due yet" check follows the real
+// service. Services are almost never more than 2 minutes early, but can be very late.
+const BOARD_SPEED_MS = 4.2;          // about 15 km/h: faster than walking
+const MAX_EARLY_MIN = 2;
+// Departures of the same line from the same stop, from all trips in the list: [{ planned, expected, selected }]
+function sameLineServices(leg, others) {
+  const key = (l) => `${lineName(l)}|${baseName(l.origin.name)}|${(l.transportation && l.transportation.destination || {}).name || ''}`;
+  const want = key(leg);
+  const seen = new Set();
+  const out = [];
+  [{ legs: [leg] }, ...others].forEach((j) => j.legs.forEach((l) => {
+    if (modeOf(l).walk || key(l) !== want) return;
+    const planned = new Date(l.origin.departureTimePlanned || l.origin.departureTimeEstimated).getTime();
+    if (seen.has(planned)) return;
+    seen.add(planned);
+    out.push({ planned, expected: depTime(l.origin).getTime(), selected: l === leg });
+  }));
+  return out;
+}
+// Which service fits a real departure time best? Rule out any that would be more than 2 minutes early,
+// then take the closest expected (live, if known) time. Returns true if it isn't the selected one.
+function boardedDifferentService(leftAt, services) {
+  const fits = services.filter((sv) => leftAt >= sv.planned - MAX_EARLY_MIN * 60000);
+  if (!fits.length) return true;   // earlier than every listed service allows
+  const best = fits.reduce((a, b) => (Math.abs(leftAt - b.expected) < Math.abs(leftAt - a.expected) ? b : a));
+  return !best.selected;
+}
+
+function showTracking(leg, goBack, others = []) {
   clearTimers();
   state.screen = 'tracking';
   const m = modeOf(leg);
   const list = rideStops(leg);
   const target = list.length - 1;
   let passed = 0, watchId = null, wake = null, lastFix = null;
+  // Boarding: when the vehicle leaves the first stop. shiftMs moves the stop times to the real service.
+  let boarded = false, shiftMs = 0, otherService = false, firstFix = true;
+  const services = sameLineServices(leg, others);
+  // Expected (live, if known) departure from the boarding stop, the time the stop list was worked out from
+  const firstStopTime = depTime(leg.origin).getTime() || (list[0].time ? new Date(list[0].time).getTime() : null);
   function startWatch() {
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     watchId = navigator.geolocation.watchPosition(onPosition, () => { lastFix = null; draw(); },
@@ -1086,7 +1122,20 @@ function showTracking(leg, goBack) {
     if (state.screen !== 'tracking') return;
     lastFix = p.coords.accuracy;
     if (lastFix <= WORST_USABLE_ACCURACY) {
-      passed = stopsPassed(list, [p.coords.latitude, p.coords.longitude], passed, lastFix);
+      const pos = [p.coords.latitude, p.coords.longitude];
+      const away = list[0].coord ? metres(pos, list[0].coord) : 0;
+      if (!boarded && firstFix && away > 200) {
+        boarded = true;   // already riding when the countdown was opened: keep the card's times
+      } else if (!boarded && (away > 200 || (away > 100 && (p.coords.speed || 0) > BOARD_SPEED_MS))) {
+        boarded = true;
+        const leftAt = p.timestamp || Date.now();
+        // Only ever move the times earlier: a later service is never held back by the timetable check
+        // anyway, and a wrong (late) boarding time must not stop the countdown crossing off stops.
+        if (firstStopTime) shiftMs = Math.min(0, leftAt - firstStopTime);
+        otherService = boardedDifferentService(leftAt, services);
+      }
+      firstFix = false;
+      passed = stopsPassed(list, pos, passed, lastFix, Date.now() - shiftMs);
     }
     draw();
   }
@@ -1118,7 +1167,10 @@ function showTracking(leg, goBack) {
     const big = here ? '📍 到站,請下車!' : bell ? (m.key === 'bus' ? '🔔 下一站下車<br>請按鐘!' : '下一站下車!') : `還有 ${left} 個站`;
     const next = list[Math.min(passed + 1, target)];
     render(`<button class="back" data-back>← 結束</button>
-      <div class="track-head">乘搭 <span class="badge m-${m.key}">${esc(lineName(leg))}</span> ${m.zh}</div>
+      <div class="track-head">乘搭 <span class="badge m-${m.key}">${esc(lineName(leg))}</span> ${m.zh}${
+        boarded ? ' <span class="boarded">✓ 已上車</span>' : ''}</div>
+      ${otherService ? `<div class="other-service">⚠️ 可能不是原定班次 — 請看月台或車上顯示屏,確認會停
+        <b>${placeLabel(list[target].full || list[target].name)}</b></div>` : ''}
       <div class="track-big">${big}</div>
       ${here ? '' : `<div class="track-row">下一站:<b>${placeLabel(next.full || next.name)}</b></div>`}
       <div class="track-row">下車站:<b>${placeLabel(list[target].full || list[target].name)}</b></div>

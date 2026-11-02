@@ -170,3 +170,6 @@ details.notices summary { color: #777; font-weight: 600; cursor: pointer; font-s
 .maplink.off, .btn.track:disabled, .btn.uber.off { opacity: .45; cursor: default; }
 .offnote { font-size: 15px; color: #777; margin-top: 2px; }
 .nowrap { white-space: nowrap; }
+.boarded { font-size: 18px; color: var(--sage); font-weight: 700; margin-left: 6px; }
+.other-service { background: #fff4d6; border-left: 5px solid #e0a800; padding: 8px 10px; margin: 10px 0; font-size: 18px; border-radius: 6px; }
+body.alert-off .other-service { background: rgba(255,255,255,.2); }

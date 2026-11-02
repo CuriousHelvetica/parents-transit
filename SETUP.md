@@ -93,6 +93,7 @@ For trips leaving **now**, each walking step (to a station, bus stop or the dest
 - Each ride step has **顯示途經車站**: the list of every stop with times. The stop before theirs is marked **🔔 下一站下車,請按鐘**, and their stop **📍 在此下車**.
 - For trips leaving **now**, buses (and trains) also have **📍 上車後按這裡:還有幾個站**. Tap it once on board: the screen shows **還有 N 個站**, crossing off stops using GPS. When the next stop is theirs the whole screen **flashes** with **🔔 下一站下車 請按鐘!**; at their stop it turns **green: 📍 到站,請下車!** Tap **← 結束** when done.
 - The app must stay **open on screen** during the ride (it keeps the screen on by itself on iOS 18.4 or later). iPhone web apps cannot vibrate, so the alert is visual only.
+- **Open the card for the train or bus they actually take.** If they catch one earlier or later on the same line, the countdown still works: it shows **✓ 已上車** when the vehicle leaves and follows the real departure time. If that looks like a different service from the card, a yellow note **⚠️ 可能不是原定班次** asks them to check the platform or on-board display shows their stop (some express trains skip stations).
 - Worth trying once together on a short bus ride.
 
 ### Uber price (🚕 改搭 Uber? 查看價錢)

@@ -29,7 +29,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - 顯示途經車站: every stop with times; 🔔 on the stop before the one to get off at.
 - Trips leaving now:
   - 🗺️ 地圖指路: Apple Maps walking directions to each stop.
-  - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps.
+  - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps. Shows 「✓ 已上車」 once the vehicle leaves; if they caught an earlier or later service on the same line, the stop times follow the real departure, and a yellow 「⚠️ 可能不是原定班次」 note asks them to check the display shows their stop.
 
 **Settings (⚙️ 設定)**
 - Home address, frequent places (add, delete, reorder), Cantonese voice test, restore defaults. (Reminder lead time hidden with ⏰ 提醒我.)
@@ -41,6 +41,11 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.4.0 — 2026-11-02
+- 📍 還有幾個站 now notices when the train or bus actually leaves (GPS distance and speed) and shows 「✓ 已上車」.
+- Catching a different service on the same line (one earlier or later) works: the stop times shift to the real departure, so the countdown still crosses off stops.
+- If the real departure points to a different service than the card they opened, a yellow note says 「⚠️ 可能不是原定班次 — 請看月台或車上顯示屏，確認會停 (their stop)」, in case it is an express that skips their stop. Rule: a service can leave at most 2 minutes early but any amount late (live times used when known); the closest fit is picked. With no other services listed, the note shows only if they left more than 2 minutes before the card's time.
 
 ### v1.3.8 — 2026-11-02
 - 🗺️ 地圖指路, 📍 還有幾個站 and 🚕 Uber are available from 30 minutes before departure, however the trip was searched (現在 or 預先計劃); earlier they show greyed out with 「出發前 30 分鐘才可使用」, and switch on by themselves when the time comes.
