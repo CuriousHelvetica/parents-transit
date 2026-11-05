@@ -43,6 +43,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.5.1 — 2026-11-05
+- Faster ◀ 早一點 / 遲一點 ▶: about 3 hours of trips after the time on screen (and 2 steps before it) are now fetched in the background, up to 3 blocks at once, so quick taps no longer wait for a search. A time that isn't in memory yet is fetched straight away instead of after the taps stop.
+
 ### v1.5.0 — 2026-11-05
 - Main screen asks only 從哪裡出發? and 去哪裡? (no numbers); 🔍 搜尋路線 always starts at leave now.
 - The time is set on the trip list: ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶, and 📅🕘 改時間及日期 underneath. The chosen time shows above the bar, e.g. 「今天 下午 5:00 出發」.

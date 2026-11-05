@@ -744,8 +744,12 @@ async function fetchTrips(pool, origin, dest, when) {
     if (x >= span[0] && x <= span[1] && !keys.has(k)) pool.trips.delete(k);
   }
   js.forEach((j) => pool.trips.set(tripKey(j), j));
-  pool.spans[arrive ? 'arr' : 'dep'].push(span);
+  pool.spans[arrive ? 'arr' : 'dep'].push([span[0], span[1], Date.now()]);
   pool.updated = Date.now();
+}
+// When the trips around t were last fetched (0 = never)
+function fetchedAt(pool, arrive, t) {
+  return pool.spans[arrive ? 'arr' : 'dep'].reduce((m, [a, b, at]) => (a <= t + 60000 && b >= t - 60000 ? Math.max(m, at) : m), 0);
 }
 // How far the known stretch reaches from t: forward for leave-at, backward for arrive-by. null = unknown.
 function knownUntil(pool, arrive, t) {
@@ -833,10 +837,12 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   }
 
   let failed = null;   // error text when the current time's trips could not be fetched
+  let waiting = false; // the screen shows 「正在搜尋路線…」
   const again = () => showTrips(originPlace, destPlace, when, { ...opts, pool });
   const draw = () => {
     if (!mine()) return;
     const shown = tripsFor(pool, when, fromHome);
+    waiting = !shown;
     let body;
     if (!shown) {
       body = failed
@@ -859,50 +865,110 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     $app.querySelector('[data-change]').onclick = () =>
       showPlanPage(when.mode === 'later' ? { ...when } : null, (w) => { if (w) when = w; again(); });
     const r = $app.querySelector('[data-retry]');
-    if (r) r.onclick = () => { failed = null; draw(); settle(); };
+    if (r) r.onclick = () => { failed = null; draw(); fetchScreen(); };
     if (shown) {
       $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
         showJourney(shown[+b.dataset.j], again, [...pool.trips.values()]));
     }
   };
-  // Fetch the trips for the time on screen (fresh live times), then quietly the next step either way.
-  let busy = null;
-  const settle = async () => {
+  // ---- Fetching ----
+  // The time on screen is fetched straight away if it isn't in memory. In the background, about 3 hours
+  // of trips after it are kept ready (each block fetched from the last known departure, so the blocks
+  // join up), and 2 steps before it, so ◀ ▶ show trips at once. Live times for the time on screen are
+  // refreshed once the taps stop.
+  const AHEAD_MS = 3 * 3600000;
+  const BEHIND_STEPS = 2;
+  let screenBusy = null;   // the time being fetched for the screen
+  const fetchScreen = async () => {
     const w = when;
+    if (screenBusy === w) return;
+    screenBusy = w;
     try {
       await fetchTrips(pool, origin, dest, w);
       if (w === when) failed = null;
     } catch (e) {
       if (w === when) failed = e.message;
     }
+    if (screenBusy === w) screenBusy = null;
     if (!mine()) return;
     draw();
-    for (const dir of [1, -1]) {
-      if (dir < 0 && w.mode !== 'later') continue;
-      const n = stepWhen(w, dir);
-      if (n.mode !== 'later' || knownUntil(pool, isArrive(n), whenTime(n)) !== null) continue;
-      try { await fetchTrips(pool, origin, dest, n); } catch (e) { /* tried again when tapped */ }
-      if (!mine()) return;
+    fill();
+  };
+  // Blocks being fetched in the background: { arrive, T }. Up to 3 at once, so fast tapping is covered
+  // even when one block of 8 trips spans less than an hour. A block is assumed to cover at least
+  // GUESS_MS, so the next one starts there instead of waiting for the first to come back.
+  const inflight = new Set();
+  const GUESS_MS = 45 * 60000;
+  const PARALLEL = 3;
+  const pending = (arrive, x) => (screenBusy && isArrive(screenBusy) === arrive
+    && (arrive ? whenTime(screenBusy) >= x && whenTime(screenBusy) - x < GUESS_MS
+      : x >= whenTime(screenBusy) && x - whenTime(screenBusy) < GUESS_MS))
+    || [...inflight].some((f) => f.arrive === arrive
+      && (arrive ? f.T >= x && f.T - x < GUESS_MS : x >= f.T && x - f.T < GUESS_MS));
+  // The next block to read ahead (or behind), or null when enough is in memory or on its way
+  const nextFetch = () => {
+    const arrive = isArrive(when);
+    const t = whenTime(when);
+    if (!arrive) {
+      let x = t;
+      while (x < t + AHEAD_MS) {
+        const edge = knownUntil(pool, false, x);
+        if (edge !== null) { x = Math.max(edge + 60000, x + 60000); continue; }
+        if (!pending(false, x)) return planAt(x, false);
+        x += GUESS_MS;
+      }
+    } else {
+      for (let x = t; x <= t + AHEAD_MS; x += STEP_MS) {
+        if (knownUntil(pool, true, x) === null && !pending(true, x)) return planAt(x, true);
+      }
+    }
+    let w = when;
+    for (let k = 0; k < BEHIND_STEPS && w.mode === 'later'; k++) {
+      w = stepWhen(w, -1);
+      if (w.mode === 'later' && knownUntil(pool, arrive, whenTime(w)) === null && !pending(arrive, whenTime(w))) return w;
+    }
+    return null;
+  };
+  let fetchedInFill = 0;   // safety limit per list
+  let pauseUntil = 0;      // after a failed block, wait a little before reading ahead again
+  const fill = () => {
+    while (mine() && inflight.size < PARALLEL && fetchedInFill < 200 && Date.now() >= pauseUntil) {
+      const w = nextFetch();
+      if (!w) return;
+      const f = { arrive: isArrive(w), T: whenTime(w) };
+      inflight.add(f);
+      fetchedInFill += 1;
+      fetchTrips(pool, origin, dest, w).then(() => {
+        inflight.delete(f);
+        if (!mine()) return;
+        // A block read ahead may already hold the time the screen is waiting for
+        if (waiting && tripsFor(pool, when, fromHome)) draw();
+        fill();
+      }, () => { inflight.delete(f); pauseUntil = Date.now() + 10000; });
     }
   };
-  // A tap shows what is in memory at once; the fetch waits until the taps stop.
+  // Live times matter for trips leaving soon: refresh them when they are more than a minute old
+  const refreshScreen = (maxAge) => {
+    const t = whenTime(when);
+    const soon = t - Date.now() < 90 * 60000;
+    if (Date.now() - fetchedAt(pool, isArrive(when), t) > (soon ? maxAge : 5 * 60000)) fetchScreen();
+    else fill();
+  };
+  // A tap shows what is in memory at once
+  let busy = null;
   const setWhen = (w) => {
     when = w;
     failed = null;
     draw();
+    if (waiting) fetchScreen();
+    fill();
     clearTimeout(busy);
-    busy = setTimeout(settle, 600);
+    busy = setTimeout(() => mine() && refreshScreen(60000), 800);
     timers.push(busy);
   };
   draw();
-  await settle();
-  // Live times matter for trips leaving soon; later trips change less often.
-  let tick = 0;
-  timers.push(setInterval(() => {
-    tick += 1;
-    const soon = whenTime(when) - Date.now() < 90 * 60000;
-    if (soon || tick % 5 === 0) settle();
-  }, 60000));
+  await fetchScreen();
+  timers.push(setInterval(() => mine() && refreshScreen(55000), 60000));
   timers.push(setInterval(draw, 15000));
 }
 
