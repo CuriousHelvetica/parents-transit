@@ -22,7 +22,7 @@ function saveSettings() { storeSet(STORE_KEY, JSON.stringify(settings)); }
 let settings = loadSettings();
 // when: { mode: 'now' } or { mode: 'later', date: 'YYYY-MM-DD', time: 'HH:MM', arrive: bool }
 // from: 'home' | 'here' | place;  to: null | 'home' | place.  The app always opens with from = 家.
-let state = { from: 'home', to: null, screen: 'home', when: { mode: 'now' } };
+let state = { from: 'home', to: null, screen: 'home' };
 let timers = [];
 
 // ---------- Helpers ----------
@@ -550,24 +550,16 @@ function showPicker(kind) {
 function showHome() {
   clearTimers();
   state.screen = 'home';
-  if (state.when.mode === 'later') state.when = clampPlan({ ...state.when });   // a plan that has gone stale moves forward
   const now = new Date();
-  const w = state.when;
   render(`
     <div class="hdr">
       <h1 class="title">爸媽出行</h1>
       <div class="sub">現在 ${todayLine(now)}</div>
       <button class="herebox" id="here" aria-label="你在"></button>
     </div>
-    <h2><span class="num">1</span>從哪裡出發?</h2>
+    <h2>從哪裡出發?</h2>
     <button class="choice" data-row="from">${choiceLabel(state.from)}<span class="chev">›</span></button>
-    <h2><span class="num">2</span>甚麼時候?</h2>
-    <div class="toggle">
-      <button data-when="now" class="${w.mode === 'now' ? 'on' : ''}">⏱️ 現在</button>
-      <button data-when="later" class="${w.mode === 'later' ? 'on' : ''}">📅 預先計劃${
-        w.mode === 'later' ? `<span class="plan-sum">${esc(planShort(w))}</span>` : ''}</button>
-    </div>
-    <h2><span class="num">3</span>去哪裡?</h2>
+    <h2>去哪裡?</h2>
     <button class="choice ${state.to ? '' : 'empty'}" data-row="to">${choiceLabel(state.to, '請選擇目的地')}<span class="chev">›</span></button>
     <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
     <div class="bar">
@@ -578,15 +570,13 @@ function showHome() {
   $app.querySelectorAll('[data-row]').forEach((b) => b.onclick = () => showPicker(b.dataset.row));
   $app.querySelector('[data-search-trip]').onclick = () => {
     if (!state.to) return showPicker('to');
-    if (state.when.mode === 'later') state.when = clampPlan({ ...state.when });
-    showTrips(asPlace(state.from), asPlace(state.to), { ...state.when }, { oneOff: !!state.to.searched });
+    // The list always starts at "leave now"; the time is changed on the list itself
+    showTrips(asPlace(state.from), asPlace(state.to), { mode: 'now' }, { oneOff: !!state.to.searched });
   };
-  $app.querySelector('[data-when="now"]').onclick = () => { state.when = { mode: 'now' }; showHome(); };
-  $app.querySelector('[data-when="later"]').onclick = () => showPlanPage();
   $app.querySelector('[data-settings]').onclick = showSettings;
-  // ↺ 重新開始: back to the clean state (家, 現在, no destination); saved places are not touched
+  // ↺ 重新開始: back to the clean state (家, no destination); saved places are not touched
   $app.querySelector('[data-reset-trip]').onclick = () => {
-    state.from = 'home'; state.to = null; state.when = { mode: 'now' };
+    state.from = 'home'; state.to = null;
     showHome();
   };
   updateHereBox();
@@ -601,7 +591,7 @@ function todayLine(now) {
 }
 
 // ---------- 📅 預先計劃 page ----------
-// Short summary for the main-screen button: 「明天 早上 9:30 出發」 / 「11月20日 晚上 7:00 前到達」
+// Short summary for the trip list: 「明天 早上 9:30 出發」 / 「11月20日 晚上 7:00 前到達」
 function planShort(w) {
   const rel = { [sydneyDate(0)]: '今天', [sydneyDate(1)]: '明天', [sydneyDate(2)]: '後天' }[w.date];
   const [, m, d] = w.date.split('-').map(Number);
@@ -630,11 +620,11 @@ function clampPlan(draft) {
   if (h * 60 + m < e[0] * 60 + e[1]) draft.time = `${String(e[0]).padStart(2, '0')}:${String(e[1]).padStart(2, '0')}`;
   return draft;
 }
-// Works on a copy: ✕ 取消 discards it, ✓ 確定 saves it.
-function showPlanPage(draftIn) {
+// 改時間及日期. Works on a copy: ✕ 取消 discards it (done(null)), ✓ 確定 keeps it (done(plan)).
+function showPlanPage(draftIn, done) {
   clearTimers();
   state.screen = 'plan';
-  const draft = clampPlan(draftIn || (state.when.mode === 'later' ? { ...state.when } : defaultPlan()));
+  const draft = clampPlan(draftIn || defaultPlan());
   const todayLeft = !!earliestToday();
   const limit = draft.date === sydneyDate(0) ? earliestToday() : null;
   const dayChips = [0, 1, 2].map((o) => {
@@ -660,16 +650,16 @@ function showPlanPage(draftIn) {
     ${timePickerHtml(draft.time, limit)}
     <div class="card plan-card" id="whenSummary">${esc(whenSummary(draft))}</div>
     <div class="bar"><button class="btn primary big" data-confirm>✓ 確定</button></div>`, true);
-  $app.querySelector('[data-cancel]').onclick = showHome;
-  $app.querySelector('[data-confirm]').onclick = () => { state.when = { ...clampPlan(draft), mode: 'later' }; showHome(); };
-  $app.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => { draft.date = b.dataset.day; showPlanPage(draft); });
-  $app.querySelectorAll('[data-arrive]').forEach((b) => b.onclick = () => { draft.arrive = b.dataset.arrive === '1'; showPlanPage(draft); });
+  $app.querySelector('[data-cancel]').onclick = () => done(null);
+  $app.querySelector('[data-confirm]').onclick = () => done({ ...clampPlan(draft), mode: 'later' });
+  $app.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => { draft.date = b.dataset.day; showPlanPage(draft, done); });
+  $app.querySelectorAll('[data-arrive]').forEach((b) => b.onclick = () => { draft.arrive = b.dataset.arrive === '1'; showPlanPage(draft, done); });
   // iPhone fires a change on every turn of a picker wheel, so only record the value and update the
   // summary; redrawing the page would close the picker before it's confirmed.
   const updateSummary = () => { $app.querySelector('#whenSummary').textContent = whenSummary(draft); };
   const other = $app.querySelector('#otherDate');
   other.onchange = () => { if (other.value) { draft.date = other.value; clampPlan(draft); updateSummary(); } };
-  other.onblur = () => showPlanPage(draft);   // after the picker closes: refresh the 今天/明天/後天 highlight
+  other.onblur = () => showPlanPage(draft, done);   // after the picker closes: refresh the 今天/明天/後天 highlight
   const tp = $app.querySelector('.timepick');
   const minSel = tp.querySelector('[data-min]');
   tp.querySelector('[data-hour]').onchange = () => {
@@ -683,10 +673,125 @@ function showPlanPage(draftIn) {
   minSel.onchange = () => { draft.time = timeFromPicker(tp); updateSummary(); };
 }
 
+// ---------- Time on the trip list: ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶ ----------
+const STEP_MS = 30 * 60000;
+const SHOW_TRIPS = 8;   // trips shown at a time
+// 'YYYY-MM-DD', 'HH:MM' (Sydney time) -> milliseconds. Two passes settle the daylight-saving offset.
+function sydneyEpoch(date, time) {
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, mi] = time.split(':').map(Number);
+  const wanted = Date.UTC(y, mo - 1, d, h, mi);
+  let t = wanted;
+  for (let k = 0; k < 2; k++) {
+    const p = sydneyParts(new Date(t));
+    t += wanted - Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+  }
+  return t;
+}
+function isArrive(when) { return when.mode === 'later' && !!when.arrive; }
+function whenTime(when) { return when.mode === 'later' ? sydneyEpoch(when.date, when.time) : Date.now(); }
+function planAt(ms, arrive) {
+  const p = sydneyParts(new Date(ms));
+  return { mode: 'later', date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}`, arrive };
+}
+// One tap: move 30 minutes, then round to the nearest :00 or :30 (a tie goes the way of the tap).
+// Sydney is a whole number of hours ahead of UTC, so half hours line up. Before now -> back to 現在.
+// Arrive-by plans move the arrival time; 現在 is always "leave now".
+function stepWhen(when, dir) {
+  const target = whenTime(when) + dir * STEP_MS;
+  const low = Math.floor(target / STEP_MS) * STEP_MS;
+  const rest = target - low;
+  const t = rest * 2 < STEP_MS ? low : rest * 2 > STEP_MS ? low + STEP_MS : dir > 0 ? low + STEP_MS : low;
+  if (t <= Date.now()) return { mode: 'now' };
+  return planAt(t, isArrive(when));
+}
+function timeBarHtml(when) {
+  const now = when.mode !== 'later';
+  return `<div class="whenx">${now ? '⏱️ 現在出發' : esc(planShort(when))}</div>
+    <div class="tbar">
+      <button class="tb-step" data-step="-1"${now ? ' disabled' : ''}>◀ 早一點</button>
+      <button class="tb-mid${now ? ' on' : ''}" data-now>⏱️ 現在</button>
+      <button class="tb-step" data-step="1">遲一點 ▶</button>
+    </div>
+    <button class="tb-change" data-change>📅🕘 改時間及日期</button>`;
+}
+
+// ---------- Trips kept in memory for one route ----------
+// Every trip fetched for this route stays in memory while the list is open (a few hundred KB at most),
+// so ◀ ▶ show trips straight away. Each fetch "covers" a stretch of time: for leave-at searches from the
+// asked time to the last departure returned; for arrive-by searches from the first arrival to the asked
+// time. Trips inside a fresh stretch that are no longer returned (e.g. cancelled) are dropped.
+function newTripPool() { return { trips: new Map(), spans: { dep: [], arr: [] }, updated: 0 }; }
+const depMs = (j) => depTime(j.legs[0].origin).getTime();
+const arrMs = (j) => arrTime(j.legs[j.legs.length - 1].destination).getTime();
+// Same trip in two fetches: same first ride (planned time + line) and same lines after it
+function tripKey(j) {
+  const rides = j.legs.filter((l) => !modeOf(l).walk);
+  if (!rides.length) return `walk|${j.legs[0].origin.departureTimePlanned || ''}`;
+  return `${rides[0].origin.departureTimePlanned || ''}|${rides.map(lineName).join('>')}`;
+}
+async function fetchTrips(pool, origin, dest, when) {
+  const arrive = isArrive(when);
+  const T = whenTime(when);
+  const js = await planTrip(origin, dest, when);
+  const times = js.map(arrive ? arrMs : depMs).filter((x) => !isNaN(x));
+  // Nothing found: count the next (or previous) hour as known-empty, so the screen doesn't wait forever
+  const span = times.length ? (arrive ? [Math.min(T, ...times), T] : [T, Math.max(T, ...times)])
+    : (arrive ? [T - 3600000, T] : [T, T + 3600000]);
+  const keys = new Set(js.map(tripKey));
+  for (const [k, j] of pool.trips) {
+    const x = arrive ? arrMs(j) : depMs(j);
+    if (x >= span[0] && x <= span[1] && !keys.has(k)) pool.trips.delete(k);
+  }
+  js.forEach((j) => pool.trips.set(tripKey(j), j));
+  pool.spans[arrive ? 'arr' : 'dep'].push(span);
+  pool.updated = Date.now();
+}
+// How far the known stretch reaches from t: forward for leave-at, backward for arrive-by. null = unknown.
+function knownUntil(pool, arrive, t) {
+  const spans = pool.spans[arrive ? 'arr' : 'dep'];
+  const slack = 60000;
+  let edge = null;
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const [a, b] of spans) {
+      if (!arrive && a <= (edge ?? t) + slack && b >= (edge ?? t) && (edge === null || b > edge)) { edge = b; grew = true; }
+      if (arrive && b >= (edge ?? t) - slack && a <= (edge ?? t) && (edge === null || a < edge)) { edge = a; grew = true; }
+    }
+  }
+  return edge;
+}
+// The trips to show for `when`, earliest departure first. null = not fetched yet.
+function tripsFor(pool, when, fromHome) {
+  const arrive = isArrive(when);
+  const t = whenTime(when);
+  const edge = knownUntil(pool, arrive, t);
+  if (edge === null) return null;
+  let list = [...pool.trips.values()];
+  if (arrive) {
+    list = list.filter((j) => arrMs(j) <= t + 60000 && arrMs(j) >= edge).sort((a, b) => arrMs(b) - arrMs(a));
+  } else {
+    // A few minutes' leeway: Transport for NSW sometimes includes a trip just before the asked time
+    list = list.filter((j) => depMs(j) >= t - 5 * 60000 && depMs(j) <= edge).sort((a, b) => depMs(a) - depMs(b));
+  }
+  // They walk slowly from home; hide trips that left more than a minute ago
+  return list.map((j) => (fromHome ? slowerHomeWalk(j) : j))
+    .filter((j) => minutesUntil(depTime(j.legs[0].origin)) >= -1)
+    .slice(0, SHOW_TRIPS)
+    .sort((a, b) => depMs(a) - depMs(b));
+}
+
 // opts.oneOff: a place found with 🔍 其他地點 (not one of the saved buttons)
+// opts.pool: trips already fetched for this route (kept when coming back from a trip's details)
+let tripsRun = 0;
 async function showTrips(originPlace, destPlace, when, opts = {}) {
   clearTimers();
   state.screen = 'trips';
+  const run = ++tripsRun;
+  const mine = () => state.screen === 'trips' && tripsRun === run;
+  // 📍 現在位置 can change between visits, so its trips are never reused
+  const pool = (originPlace !== 'here' && opts.pool) || newTripPool();
+  const fromHome = originPlace === settings.home;
   const fromLabel = originPlace === 'here' ? '📍 現在位置' : esc(originPlace.zh || originPlace.en);
   const toLabel = esc(destPlace.zh || destPlace.en);
   const isSaved = () => settings.places.some((p) => p.query === destPlace.query);
@@ -698,72 +803,106 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   const toEn = destPlace.en || '';
   const enLine = fromEn && toEn && `${fromEn} → ${toEn}` !== `${originPlace.zh || ''} → ${destPlace.zh || ''}`
     ? `<div class="route-en">${esc(fromEn)} → ${esc(toEn)}</div>` : '';
-  const headerHtml = () => `<button class="back" data-back>← 返回</button>
-    <h1 class="route">${fromLabel} → ${toLabel}</h1>${enLine}
-    <div class="when">${esc(whenSummary(when))}</div>${saveBtn()}`;
-  let header = headerHtml();
+  const header = () => `<button class="back" data-back>← 返回</button>
+    <h1 class="route">${fromLabel} → ${toLabel}</h1>${enLine}${saveBtn()}`;
   const wireSave = () => {
     const b = $app.querySelector('[data-save]');
     if (b) b.onclick = () => {
       const { searched, ...keep } = destPlace;
       settings.places.push(keep);
       saveSettings();
-      header = headerHtml();
       b.parentElement.outerHTML = '<div class="sub ontime">✓ 已加到常去地點</div>';
     };
   };
-  const retry = () => showTrips(originPlace, destPlace, when, opts);
-  render(header + `<div class="msg">正在搜尋路線…</div>`);
+  render(header() + `<div class="msg">正在搜尋路線…</div>`);
   $app.querySelector('[data-back]').onclick = showHome;
   wireSave();
 
   let origin, dest;
   try {
-    origin = originPlace === 'here' ? await currentPosition() : await resolvePlace(originPlace);
-    dest = await resolvePlace(destPlace);
+    origin = originPlace === 'here' ? await currentPosition() : (pool.origin || await resolvePlace(originPlace));
+    dest = pool.dest || await resolvePlace(destPlace);
+    if (originPlace !== 'here') pool.origin = origin;
+    pool.dest = dest;
   } catch (e) {
+    if (!mine()) return;
     // Our own messages (place not found, no location) are shown as they are; network problems get a clear sentence.
     const ours = /^(找不到|無法取得|這部電話)/.test(e.message);
-    return showError(header, ours ? e.message : `無法連接伺服器,請檢查網絡。(${e.message})`, '', retry);
+    return showError(header(), ours ? e.message : `無法連接伺服器,請檢查網絡。(${e.message})`, '',
+      () => showTrips(originPlace, destPlace, when, opts));
   }
 
-  let journeys = null;
+  let failed = null;   // error text when the current time's trips could not be fetched
+  const again = () => showTrips(originPlace, destPlace, when, { ...opts, pool });
   const draw = () => {
-    if (state.screen !== 'trips' || !journeys) return;
-    // Uber: available when a trip leaves within 30 minutes (or, with no trips found, when searching for now)
-    const soon = journeys.length ? journeys.some((jj) => liveNow(depTime(jj.legs[0].origin))) : when.mode === 'now';
-    const uber = uberBlock(destPlace, journeys, soon);
-    if (!journeys.length) return showError(header, '找不到路線。請改一下時間,或稍後再試。', uber, retry);
-    const sort = settings.sort || 'changes';
-    const sorted = sortJourneys(journeys, sort, when);
-    render(header + `<div class="toggle sort">
-        <button data-sort="changes" class="${sort === 'changes' ? 'on' : ''}">🔁 最少轉車</button>
-        <button data-sort="fast" class="${sort === 'fast' ? 'on' : ''}">⚡ 最快</button>
-      </div>
-      <div class="sub">更新時間 ${fmtTime(new Date())}・自動更新</div>` +
-      sorted.map((j, i) => journeyCard(j, i)).join('') + uber, true);
+    if (!mine()) return;
+    const shown = tripsFor(pool, when, fromHome);
+    let body;
+    if (!shown) {
+      body = failed
+        ? `<div class="err">無法連接伺服器,請檢查網絡。(${esc(failed)})</div>
+           <div class="bar"><button class="btn primary" data-retry>重試</button></div>`
+        : '<div class="msg">正在搜尋路線…</div>';
+    } else {
+      // Uber: available when a trip leaves within 30 minutes (or, with no trips found, when searching for now)
+      const soon = shown.length ? shown.some((jj) => liveNow(depTime(jj.legs[0].origin))) : when.mode === 'now';
+      const uber = uberBlock(destPlace, shown, soon);
+      body = `<div class="sub">更新時間 ${fmtTime(new Date(pool.updated))}・自動更新</div>` + (shown.length
+        ? shown.map((j, i) => journeyCard(j, i)).join('')
+        : '<div class="msg">這段時間找不到路線。<br>請按 ◀ 早一點 / 遲一點 ▶,或改時間。</div>') + uber;
+    }
+    render(header() + timeBarHtml(when) + body, true);
     $app.querySelector('[data-back]').onclick = showHome;
-    $app.querySelectorAll('[data-sort]').forEach((b) => b.onclick = () => {
-      settings.sort = b.dataset.sort; saveSettings(); draw();
-    });
     wireSave();
-    $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-      showJourney(sorted[+b.dataset.j], () => showTrips(originPlace, destPlace, when, opts), journeys));
-  };
-  const load = async () => {
-    try {
-      // Hide trips that left more than a minute ago (after adding the extra walking time from home)
-      journeys = (await planTrip(origin, dest, when))
-        .map((j) => (originPlace === settings.home ? slowerHomeWalk(j) : j))
-        .filter((j) => minutesUntil(depTime(j.legs[0].origin)) >= -1);
-      draw();
-    } catch (e) {
-      if (!journeys && state.screen === 'trips') showError(header, '無法連接伺服器,請檢查網絡。(' + e.message + ')', '', retry);
+    $app.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => setWhen(stepWhen(when, +b.dataset.step)));
+    $app.querySelector('[data-now]').onclick = () => setWhen({ mode: 'now' });
+    $app.querySelector('[data-change]').onclick = () =>
+      showPlanPage(when.mode === 'later' ? { ...when } : null, (w) => { if (w) when = w; again(); });
+    const r = $app.querySelector('[data-retry]');
+    if (r) r.onclick = () => { failed = null; draw(); settle(); };
+    if (shown) {
+      $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
+        showJourney(shown[+b.dataset.j], again, [...pool.trips.values()]));
     }
   };
-  await load();
-  // Live times matter for trips leaving soon; planned trips change less often.
-  timers.push(setInterval(load, when.mode === 'now' ? 60000 : 300000));
+  // Fetch the trips for the time on screen (fresh live times), then quietly the next step either way.
+  let busy = null;
+  const settle = async () => {
+    const w = when;
+    try {
+      await fetchTrips(pool, origin, dest, w);
+      if (w === when) failed = null;
+    } catch (e) {
+      if (w === when) failed = e.message;
+    }
+    if (!mine()) return;
+    draw();
+    for (const dir of [1, -1]) {
+      if (dir < 0 && w.mode !== 'later') continue;
+      const n = stepWhen(w, dir);
+      if (n.mode !== 'later' || knownUntil(pool, isArrive(n), whenTime(n)) !== null) continue;
+      try { await fetchTrips(pool, origin, dest, n); } catch (e) { /* tried again when tapped */ }
+      if (!mine()) return;
+    }
+  };
+  // A tap shows what is in memory at once; the fetch waits until the taps stop.
+  const setWhen = (w) => {
+    when = w;
+    failed = null;
+    draw();
+    clearTimeout(busy);
+    busy = setTimeout(settle, 600);
+    timers.push(busy);
+  };
+  draw();
+  await settle();
+  // Live times matter for trips leaving soon; later trips change less often.
+  let tick = 0;
+  timers.push(setInterval(() => {
+    tick += 1;
+    const soon = whenTime(when) - Date.now() < 90 * 60000;
+    if (soon || tick % 5 === 0) settle();
+  }, 60000));
   timers.push(setInterval(draw, 15000));
 }
 
@@ -781,17 +920,6 @@ function slowerHomeWalk(j) {
   return { ...j, legs: [{ ...first, origin, duration: (first.duration || 0) + HOME_WALK_EXTRA_MIN * 60 }, ...j.legs.slice(1)] };
 }
 
-function changesOf(j) { return Math.max(0, j.legs.filter((l) => !modeOf(l).walk).length - 1); }
-
-// 'fast': arrive earliest (or, for arrive-by searches, leave latest).
-// 'changes': fewest changes first, then fastest. Nothing is removed.
-function sortJourneys(journeys, sort, when) {
-  const arriveBy = when.mode === 'later' && when.arrive;
-  const fast = (a, b) => (arriveBy
-    ? depTime(b.legs[0].origin) - depTime(a.legs[0].origin)
-    : arrTime(a.legs[a.legs.length - 1].destination) - arrTime(b.legs[b.legs.length - 1].destination));
-  return journeys.slice().sort((a, b) => (sort === 'changes' ? changesOf(a) - changesOf(b) : 0) || fast(a, b));
-}
 
 // 🚕 Uber: opens the Uber app (or Uber's website) with pickup = the phone's current location and the
 // destination filled in, so the real price shows before booking. Nothing is booked automatically.

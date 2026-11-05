@@ -173,3 +173,16 @@ details.notices summary { color: #777; font-weight: 600; cursor: pointer; font-s
 .boarded { font-size: 18px; color: var(--sage); font-weight: 700; margin-left: 6px; }
 .other-service { background: #fff4d6; border-left: 5px solid #e0a800; padding: 8px 10px; margin: 10px 0; font-size: 18px; border-radius: 6px; }
 body.alert-off .other-service { background: rgba(255,255,255,.2); }
+/* Trip list: the time it is for, then ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶ and 改時間及日期 */
+.whenx { font-size: 24px; font-weight: 800; color: var(--primary); margin: 10px 0 0; }
+.tbar { display: flex; align-items: stretch; gap: 8px; margin: 10px 0 8px; }
+.tb-step { flex: none; padding: 12px 10px; border-radius: 14px; background: #fff; border: 2px solid var(--primary); color: var(--primary); font-weight: 700; font-size: 20px; white-space: nowrap; }
+.tb-step:disabled { opacity: .35; border-color: var(--border); color: #888; cursor: default; }
+.tb-mid { flex: 1; font-weight: 800; font-size: 22px; color: var(--primary); background: #fff; border: 2px solid var(--primary); border-radius: 14px; padding: 6px; white-space: nowrap; }
+.tb-mid.on { background: var(--primary-soft); border-width: 3px; }
+.tb-change { width: 100%; padding: 12px; border-radius: 14px; background: #fff; border: 2px solid var(--primary); color: var(--primary); font-weight: 700; font-size: 21px; margin-bottom: 6px; }
+@media (max-width: 360px) {
+  .tbar { gap: 6px; }
+  .tb-step { font-size: 17px; padding: 10px 6px; }
+  .tb-mid { font-size: 18px; padding: 4px; }
+}

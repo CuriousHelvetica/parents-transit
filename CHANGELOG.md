@@ -10,14 +10,15 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - 📍 你在: current suburb and street (tap to update).
 
 **Planning a trip**
-- Three questions, then 🔍 搜尋路線: 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點), 甚麼時候?, 去哪裡? (回家, any saved station, or 🔍 其他地點).
-- Leave ⏱️ 現在 (now) or 📅 預先計劃 (plan ahead: today / tomorrow / day after / any date; leave at or arrive by a time).
+- Two questions, then 🔍 搜尋路線: 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點) and 去哪裡? (回家, any saved station, or 🔍 其他地點).
+- The trip list starts at leave now; the time is changed on the list (see below).
 - 38 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place (English, or Chinese for known stations). A searched destination can be saved with ⭐ 加到常去地點.
 - Only public transport and walking — never cycling, driving or taxi legs.
 
 **Trip list**
 - 「X 分鐘後出門」 countdown, departure and arrival times (凌晨 / 清晨 / 早上 / 中午 / 下午 / 晚上), total time, number of changes, delays, service-notice warning.
-- Sort by 🔁 最少轉車 (fewest changes, default) or ⚡ 最快 (fastest).
+- In time order (earliest departure first).
+- Time bar: ◀ 早一點 / 遲一點 ▶ move 30 minutes (rounded to :00 or :30), ⏱️ 現在 goes back to leave now, 📅🕘 改時間及日期 picks a day and a leave-at or arrive-by time. Trips already fetched for the route are kept in memory, so ◀ ▶ show trips at once while live times refresh in the background.
 - Updates automatically (every minute for trips leaving now).
 - 🚕 改搭 Uber? 查看價錢 (trips leaving now): opens Uber with pickup = current location and the destination filled in.
 
@@ -41,6 +42,14 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.5.0 — 2026-11-05
+- Main screen asks only 從哪裡出發? and 去哪裡? (no numbers); 🔍 搜尋路線 always starts at leave now.
+- The time is set on the trip list: ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶, and 📅🕘 改時間及日期 underneath. The chosen time shows above the bar, e.g. 「今天 下午 5:00 出發」.
+- ◀ ▶ move 30 minutes and round to the nearest :00 or :30 (e.g. 3:40 → 4:00, 3:56 → 4:30). 早一點 is greyed out at 現在, and stepping back past now returns to 現在. For an arrive-by plan they move the arrival time.
+- 改時間及日期 opens the same page as before (出發 is the default, 到達 on the right); ✓ 確定 / ✕ 取消 return to the list.
+- Trips fetched for the route stay in memory, and the next step either way is fetched in the background, so ◀ ▶ show trips at once. Live times refresh after the taps stop.
+- 🔁 最少轉車 / ⚡ 最快 removed: trips are listed by departure time (the badges show the changes).
 
 ### v1.4.0 — 2026-11-02
 - 📍 還有幾個站 now notices when the train or bus actually leaves (GPS distance and speed) and shows 「✓ 已上車」.

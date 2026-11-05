@@ -109,15 +109,18 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
 ## How to use (to show your parents)
 
 1. Open **爸媽出行**.
-2. Answer three questions:
+2. Answer two questions:
    - **從哪裡出發?** (where from) — 🏠 家 is already selected. Tap it to choose 📍 現在位置 (where I am now), a station, or 🔍 其他地點.
-   - **甚麼時候?** (when) — **⏱️ 現在** (now), or **📅 預先計劃** (plan ahead), which opens its own page: 哪一天? (today / tomorrow / day after, or another date), 出發還是到達? (leave at / arrive by), 幾點? (time). **✓ 確定** saves, **✕ 取消** discards. The button then shows the plan, e.g. 「明天 早上 9:30 出發」.
    - **去哪裡?** (where to) — tap to choose 🏠 回家, a station, or 🔍 其他地點.
-3. Tap **🔍 搜尋路線** (search routes).
-4. The top card says **「X 分鐘後出門」** (leave in X minutes). **🔁 最少轉車 / ⚡ 最快** changes the order. Tap a card for step-by-step directions.
-5. **⚠️ 服務通知** (service notices) are translated into Chinese; tap 英文原文 for the English.
-6. **🔊 朗讀** reads the steps aloud in Cantonese (tap again to stop).
-7. For trips leaving now: **🗺️ 地圖指路** (walking directions), **📍 上車後按這裡:還有幾個站** (stop countdown on the bus), **🚕 改搭 Uber? 查看價錢**.
+3. Tap **🔍 搜尋路線** (search routes). The list shows trips leaving **now**, earliest first.
+4. To see other times, stay on the list:
+   - **◀ 早一點 / 遲一點 ▶** (earlier / later) move 30 minutes each tap. **⏱️ 現在** jumps back to now.
+   - **📅🕘 改時間及日期** (change time and date) opens a page: 哪一天? (today / tomorrow / day after, or another date), 出發還是到達? (leave at / arrive by), 幾點? (time). **✓ 確定** shows that time, **✕ 取消** goes back unchanged.
+   - The time the list is for is shown in blue above the buttons, e.g. 「明天 早上 9:30 出發」.
+5. Each card says **「X 分鐘後出門」** (leave in X minutes). Tap a card for step-by-step directions; **← 返回** comes back to the same list.
+6. **⚠️ 服務通知** (service notices) are translated into Chinese; tap 英文原文 for the English.
+7. **🔊 朗讀** reads the steps aloud in Cantonese (tap again to stop).
+8. For trips leaving within 30 minutes: **🗺️ 地圖指路** (walking directions), **📍 上車後按這裡:還有幾個站** (stop countdown on the bus), **🚕 改搭 Uber? 查看價錢**.
 
 ## Checking the Chinese place names
 
