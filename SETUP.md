@@ -66,7 +66,7 @@ The first time they tap **📍 現在位置** then a destination, iPhone will as
 If they tapped "Don't Allow" by mistake: **Settings → Privacy & Security → Location Services → Safari Websites → While Using the App**.
 
 
-**To stop iPhone asking for location repeatedly** (the app now uses location when it opens, to show 📍 你在): turn on
+**To stop iPhone asking for location repeatedly** (the app follows location while the main screen is open, to show 📍 你在; it stops on other screens): turn on
 - **Settings → Privacy & Security → Location Services → Safari Websites → While Using the App**, and
 - **Settings → Apps → Safari → Location → Allow** (on some iOS versions: Safari → Settings for Websites → Location).
 If it still asks every time the app opens, tell Claude: the automatic 📍 你在 can be changed to tap-only.
@@ -117,7 +117,7 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
    - **◀ 早一點 / 遲一點 ▶** (earlier / later) move 30 minutes each tap. **⏱️ 現在** jumps back to now.
    - **📅🕘 改時間及日期** (change time and date) opens a page: 哪一天? (today / tomorrow / day after, or another date), 出發還是到達? (leave at / arrive by), 幾點? (time). **✓ 確定** shows that time, **✕ 取消** goes back unchanged.
    - The time the list is for is shown in blue above the buttons, e.g. 「明天 早上 9:30 出發」.
-5. Each card says **「X 分鐘後出門」** (leave in X minutes). Tap a card for step-by-step directions; **← 返回** comes back to the same list.
+5. Each card says **「X 分鐘後出門」** (leave in X minutes). At ⏱️ 現在, trains or buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」): if they jumped on in a rush, tap theirs to see the stops and 📍 還有幾個站. Tap a card for step-by-step directions; **← 返回** comes back to the same list.
 6. **⚠️ 服務通知** (service notices) are translated into Chinese; tap 英文原文 for the English.
 7. **🔊 朗讀** reads the steps aloud in Cantonese (tap again to stop).
 8. For trips leaving within 30 minutes: **🗺️ 地圖指路** (walking directions), **📍 上車後按這裡:還有幾個站** (stop countdown on the bus), **🚕 改搭 Uber? 查看價錢**.

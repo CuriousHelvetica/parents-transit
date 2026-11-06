@@ -186,3 +186,7 @@ body.alert-off .other-service { background: rgba(255,255,255,.2); }
   .tb-step { font-size: 17px; padding: 10px 6px; }
   .tb-mid { font-size: 18px; padding: 4px; }
 }
+/* Trips whose train or bus has just left (top of 「現在」): greyed, still tappable */
+.card.departed { background: #f1ede6; box-shadow: none; border: 2px dashed var(--border); }
+.card.departed .times, .card.departed .sub, .card.departed .badge { opacity: .75; }
+.leave.gone { color: #777; font-size: 24px; }

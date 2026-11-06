@@ -7,7 +7,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ## What the app does
 
 **Main screen**
-- 📍 你在: current suburb and street (tap to update).
+- 📍 你在: current suburb and street, following GPS while the main screen is open (「(位置未能更新)」 when there is no GPS, e.g. underground; tap to update).
 
 **Planning a trip**
 - Two questions, then 🔍 搜尋路線: 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點) and 去哪裡? (回家, any saved station, or 🔍 其他地點).
@@ -17,7 +17,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 
 **Trip list**
 - 「X 分鐘後出門」 countdown, departure and arrival times (凌晨 / 清晨 / 早上 / 中午 / 下午 / 晚上), total time, number of changes, delays, service-notice warning.
-- In time order (earliest departure first).
+- In time order (earliest departure first). At 現在, trains and buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」), so someone who jumped on in a rush can still open theirs.
 - Time bar: ◀ 早一點 / 遲一點 ▶ move 30 minutes (rounded to :00 or :30), ⏱️ 現在 goes back to leave now, 📅🕘 改時間及日期 picks a day and a leave-at or arrive-by time. Trips already fetched for the route are kept in memory, so ◀ ▶ show trips at once while live times refresh in the background.
 - Updates automatically (every minute for trips leaving now).
 - 🚕 改搭 Uber? 查看價錢 (trips leaving now): opens Uber with pickup = current location and the destination filled in.
@@ -42,6 +42,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.5.2 — 2026-11-06
+- Jumped on in a rush? At ⏱️ 現在 the list now also shows, greyed at the top, up to 3 trips whose train or bus left in the last 20 minutes: 「火車已開出 X 分鐘 · 如已上車,按此查看下車站」. Tapping one opens its stops and 📍 還有幾個站 as usual; its details page says 已開出 instead of 已錯過.
+- 📍 你在 is now live while the main screen is open: GPS follows the phone and the suburb and street update after moving about 150 m (at most every 30 seconds). GPS stops on other screens and when the app is hidden. With no position for a minute (e.g. underground), the last place stays with 「(位置未能更新)」. Tapping it uses a fresh position.
 
 ### v1.5.1 — 2026-11-05
 - Faster ◀ 早一點 / 遲一點 ▶: about 3 hours of trips after the time on screen (and 2 steps before it) are now fetched in the background, up to 3 blocks at once, so quick taps no longer wait for a search. A time that isn't in memory yet is fetched straight away instead of after the taps stop.

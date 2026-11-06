@@ -33,7 +33,8 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-function clearTimers() { timers.forEach(clearInterval); timers = []; }
+// Every screen starts with this: stops timers and the 📍 你在 GPS (the main screen starts it again)
+function clearTimers() { timers.forEach(clearInterval); timers = []; if (typeof stopHereWatch === 'function') stopHereWatch(); }
 
 function sydneyParts(d) {
   const p = {};
@@ -393,12 +394,18 @@ function whenSummary(when) {
 }
 
 // ---------- 📍 你在: current suburb + street on the main screen ----------
-// Looked up when the main screen opens (at most every 2 minutes) and when tapped. No continuous tracking.
+// Live while the main screen is on screen: GPS follows the phone, and the address is looked up again after
+// moving HERE_MOVE_M metres (at most every HERE_GAP_MS). GPS stops when another screen opens or the app is
+// hidden. Tapping it asks for a brand-new position. If no position comes for HERE_STALE_MS (e.g. underground),
+// the last place stays with 「(位置未能更新)」.
 // Address lookup: OpenStreetMap (Nominatim) first, Transport for NSW (through our Worker) as fallback.
 // Nominatim policy: max 1 request/s overall, identify the app (the browser sends our address), credit OSM.
-const HERE_REFRESH_MS = 2 * 60000;
+const HERE_MOVE_M = 150;
+const HERE_GAP_MS = 30000;
+const HERE_STALE_MS = 60000;
 const HERE_STREET_ACCURACY = 100;   // metres; less precise than this -> suburb only
-let here = { info: null, at: 0, busy: false, log: null };
+// pos/acc: where the address was looked up; fixAt: when the last GPS position came in
+let here = { info: null, at: 0, busy: false, log: null, pos: null, acc: null, fixAt: 0, stale: false, watch: null, probing: false };
 
 function cleanStreet(st) { return String(st || '').replace(/^[\d\-\/]+[A-Za-z]?\s+/, '').trim(); }
 async function lookupTfnsw(lat, lon) {
@@ -428,7 +435,7 @@ function hereHtml() {
   const { suburb, street, source, raw } = here.info;
   const zh = ZH_NAMES[suburb];
   return `<div class="here-line">📍 你在 <b>${zh ? `${esc(zh)} <span class="en">${esc(suburb)}</span>` : esc(suburb)}</b>${
-      here.busy ? ' <span class="small">(更新中…)</span>' : ''}</div>
+      here.busy ? ' <span class="small">(更新中…)</span>' : here.stale ? ' <span class="small">(位置未能更新)</span>' : ''}</div>
     ${street ? `<div class="here-street">${esc(street)}</div>` : ''}
     ${DEBUG ? `<div class="here-debug">[debug] ${esc(source)} ${esc(raw || '')}</div>${dbg}` : ''}`;
 }
@@ -438,37 +445,87 @@ function updateHereBox() {
   const html = hereHtml();
   el.innerHTML = html;
   el.style.display = html ? '' : 'none';   // no divider until there is something to show
-  el.onclick = () => refreshHere(true);
+  el.onclick = () => refreshHere();
 }
-async function refreshHere(force) {
-  if (here.busy || (!force && Date.now() - here.at < HERE_REFRESH_MS) || !navigator.geolocation) return;
+// Look up the address for a GPS position (OpenStreetMap first, Transport for NSW as backup)
+async function lookupHere(pos) {
+  const { latitude: lat, longitude: lon, accuracy } = pos.coords;
   here.busy = true;
-  updateHereBox();
-  try {
-    const pos = await new Promise((ok, fail) => navigator.geolocation.getCurrentPosition(ok, fail,
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }));
-    const { latitude: lat, longitude: lon, accuracy } = pos.coords;
-    here.log = [`GPS ok, ±${Math.round(accuracy)}m`];
-    // OpenStreetMap finds the nearest road (more accurate street); Transport for NSW is the backup.
-    let place = await lookupOsm(lat, lon).catch((e) => { here.log.push(`osm error: ${e.message}`); return null; });
-    if (!place) {
-      here.log.push('osm: no address');
-      place = await lookupTfnsw(lat, lon).catch((e) => { here.log.push(`tfnsw error: ${e.message}`); return null; });
-      if (!place) here.log.push('tfnsw: no address');
-    }
-    here.info = place ? { ...place, street: accuracy <= HERE_STREET_ACCURACY ? place.street : '' } : null;
-  } catch (e) {
-    // no permission or no position: never show a wrong place
-    here.info = null;
-    here.log = [e && e.code === 1 ? 'location permission denied' : e && e.code === 3 ? 'location timed out'
-      : `location error: ${(e && e.message) || e}`];
-  }
   here.at = Date.now();
+  here.pos = [lat, lon];
+  here.acc = accuracy;
+  updateHereBox();
+  here.log = [`GPS ok, ±${Math.round(accuracy)}m`];
+  let place = await lookupOsm(lat, lon).catch((e) => { here.log.push(`osm error: ${e.message}`); return null; });
+  if (!place) {
+    here.log.push('osm: no address');
+    place = await lookupTfnsw(lat, lon).catch((e) => { here.log.push(`tfnsw error: ${e.message}`); return null; });
+    if (!place) here.log.push('tfnsw: no address');
+  }
+  // Keep the last place if this lookup found nothing (e.g. no network for a moment)
+  if (place) here.info = { ...place, street: accuracy <= HERE_STREET_ACCURACY ? place.street : '' };
   here.busy = false;
   updateHereBox();
 }
+function onHerePosition(pos) {
+  if (state.screen !== 'home' || document.visibilityState !== 'visible') return stopHereWatch();
+  here.fixAt = Date.now();
+  here.last = pos;
+  here.stale = false;
+  const c = [pos.coords.latitude, pos.coords.longitude];
+  const moved = !here.pos || metres(c, here.pos) >= HERE_MOVE_M;
+  // A first rough fix shows the suburb; look again once it is precise enough for the street
+  const sharper = here.acc > HERE_STREET_ACCURACY && pos.coords.accuracy <= HERE_STREET_ACCURACY;
+  if (!here.busy && (moved || sharper || !here.info) && Date.now() - here.at >= HERE_GAP_MS) lookupHere(pos);
+  else updateHereBox();
+}
+function onHereError(e) {
+  if (e && e.code === 1) {   // permission denied: never show a wrong place
+    here.info = null;
+    here.log = ['location permission denied'];
+    here.at = Date.now();
+    stopHereWatch();
+    updateHereBox();
+  }
+  // timeouts: keep the last place; the stale check marks it
+}
+function startHereWatch() {
+  if (!navigator.geolocation || here.watch !== null) return;
+  here.watch = navigator.geolocation.watchPosition(onHerePosition, onHereError,
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+}
+function stopHereWatch() {
+  if (here.watch !== null && navigator.geolocation) navigator.geolocation.clearWatch(here.watch);
+  here.watch = null;
+}
+// iPhone may not report a position while standing still, so before calling it stale, ask once more
+function checkHereStale() {
+  if (state.screen !== 'home' || here.probing || !here.fixAt || Date.now() - here.fixAt < HERE_STALE_MS) return;
+  here.probing = true;
+  navigator.geolocation.getCurrentPosition((pos) => { here.probing = false; onHerePosition(pos); },
+    () => { here.probing = false; here.stale = true; updateHereBox(); },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+}
+// Tap: the address for a fresh position (GPS from the last 10 seconds, or a brand-new reading)
+function refreshHere() {
+  if (here.busy || !navigator.geolocation) return;
+  if (here.last && Date.now() - here.fixAt < 10000) return lookupHere(here.last);
+  here.busy = true;
+  updateHereBox();
+  navigator.geolocation.getCurrentPosition((pos) => {
+    here.busy = false;
+    here.fixAt = Date.now();
+    here.stale = false;
+    lookupHere(pos);
+  }, (e) => {
+    here.busy = false;
+    if (e && e.code === 1) onHereError(e);
+    else { here.stale = !!here.info; if (!here.info) here.log = ['location timed out']; here.at = here.at || Date.now(); updateHereBox(); }
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+}
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state.screen === 'home') refreshHere(false);
+  if (document.visibilityState !== 'visible') return stopHereWatch();
+  if (state.screen === 'home') startHereWatch();
 });
 
 // Time picker: one hour wheel in daily order (清晨 5時 … 晚上 11時, then 凌晨 12時 … 4時) and a minutes
@@ -580,7 +637,8 @@ function showHome() {
     showHome();
   };
   updateHereBox();
-  refreshHere(false);
+  startHereWatch();
+  timers.push(setInterval(() => { checkHereStale(); updateHereBox(); }, 15000));
 }
 
 // 「11月2日 星期一・晚上 7:30」 for the header card
@@ -785,6 +843,24 @@ function tripsFor(pool, when, fromHome) {
     .sort((a, b) => depMs(a) - depMs(b));
 }
 
+// For 「現在」: trips whose first train or bus left in the last DEPARTED_MIN minutes, so someone who
+// jumped on in a rush can still open theirs (stop list, 還有幾個站). Most recent DEPARTED_MAX, earliest first.
+const DEPARTED_MIN = 20;
+const DEPARTED_MAX = 3;
+function firstRideMs(j) {
+  const r = j.legs.find((l) => !modeOf(l).walk);
+  return r ? depTime(r.origin).getTime() : NaN;
+}
+function departedFor(pool, fromHome) {
+  const now = Date.now();
+  return [...pool.trips.values()]
+    .filter((j) => { const x = firstRideMs(j); return x <= now - 30000 && x >= now - DEPARTED_MIN * 60000; })
+    .sort((a, b) => firstRideMs(b) - firstRideMs(a))
+    .slice(0, DEPARTED_MAX)
+    .map((j) => (fromHome ? slowerHomeWalk(j) : j))
+    .sort((a, b) => firstRideMs(a) - firstRideMs(b));
+}
+
 // opts.oneOff: a place found with 🔍 其他地點 (not one of the saved buttons)
 // opts.pool: trips already fetched for this route (kept when coming back from a trip's details)
 let tripsRun = 0;
@@ -841,8 +917,12 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   const again = () => showTrips(originPlace, destPlace, when, { ...opts, pool });
   const draw = () => {
     if (!mine()) return;
-    const shown = tripsFor(pool, when, fromHome);
-    waiting = !shown;
+    const upcoming = tripsFor(pool, when, fromHome);
+    waiting = !upcoming;
+    const upKeys = new Set((upcoming || []).map(tripKey));
+    const departed = upcoming && when.mode !== 'later'
+      ? departedFor(pool, fromHome).filter((j) => !upKeys.has(tripKey(j))) : [];
+    const shown = upcoming && [...departed, ...upcoming];
     let body;
     if (!shown) {
       body = failed
@@ -851,10 +931,10 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
         : '<div class="msg">正在搜尋路線…</div>';
     } else {
       // Uber: available when a trip leaves within 30 minutes (or, with no trips found, when searching for now)
-      const soon = shown.length ? shown.some((jj) => liveNow(depTime(jj.legs[0].origin))) : when.mode === 'now';
-      const uber = uberBlock(destPlace, shown, soon);
+      const soon = upcoming.length ? upcoming.some((jj) => liveNow(depTime(jj.legs[0].origin))) : when.mode === 'now';
+      const uber = uberBlock(destPlace, upcoming, soon);
       body = `<div class="sub">更新時間 ${fmtTime(new Date(pool.updated))}・自動更新</div>` + (shown.length
-        ? shown.map((j, i) => journeyCard(j, i)).join('')
+        ? shown.map((j, i) => journeyCard(j, i, i < departed.length)).join('')
         : '<div class="msg">這段時間找不到路線。<br>請按 ◀ 早一點 / 遲一點 ▶,或改時間。</div>') + uber;
     }
     render(header() + timeBarHtml(when) + body, true);
@@ -922,6 +1002,11 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
         if (knownUntil(pool, true, x) === null && !pending(true, x)) return planAt(x, true);
       }
     }
+    // 「現在」: also the last DEPARTED_MIN minutes, for trains and buses that have just left
+    if (when.mode !== 'later') {
+      const back = Date.now() - DEPARTED_MIN * 60000;
+      if (knownUntil(pool, false, back) === null && !pending(false, back)) return planAt(back, false);
+    }
     let w = when;
     for (let k = 0; k < BEHIND_STEPS && w.mode === 'later'; k++) {
       w = stepWhen(w, -1);
@@ -942,7 +1027,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
         inflight.delete(f);
         if (!mine()) return;
         // A block read ahead may already hold the time the screen is waiting for
-        if (waiting && tripsFor(pool, when, fromHome)) draw();
+        if ((waiting && tripsFor(pool, when, fromHome)) || (when.mode !== 'later' && f.T < Date.now())) draw();
         fill();
       }, () => { inflight.delete(f); pauseUntil = Date.now() + 10000; });
     }
@@ -1024,6 +1109,16 @@ function showError(header, text, extra = '', retry = null) {
   $app.querySelector('[data-retry]').onclick = () => (retry ? retry() : location.reload());
 }
 
+// Trip details: once the first train or bus has left, say so instead of 「已錯過」 (they may be on it)
+function journeyLeaveText(j) {
+  const r = j.legs.find((l) => !modeOf(l).walk);
+  const x = firstRideMs(j);
+  if (r && x <= Date.now() - 30000) {
+    const ago = Math.round((Date.now() - x) / 60000);
+    return { cls: 'gone', text: `${modeOf(r).zh}${ago ? `已開出 ${ago} 分鐘` : '剛開出'}` };
+  }
+  return leaveText(depTime(j.legs[0].origin));
+}
 function leaveText(leave) {
   const mins = minutesUntil(leave);
   if (mins < -1) return { cls: 'missed', text: '已錯過' };
@@ -1033,7 +1128,8 @@ function leaveText(leave) {
   return { cls: '', text: `${dayLabel(ymdOf(leave))}<br>${fmtTime(leave)} 出門` };
 }
 
-function journeyCard(j, i) {
+// departed: its first train or bus has already left (shown greyed at the top of 「現在」)
+function journeyCard(j, i, departed = false) {
   const first = j.legs[0];
   const last = j.legs[j.legs.length - 1];
   const leave = depTime(first.origin);
@@ -1056,8 +1152,14 @@ function journeyCard(j, i) {
     if (m.walk) return `<span class="badge m-walk">🚶${Math.max(1, Math.round((l.duration || 0) / 60))}'</span>`;
     return `<span class="badge m-${m.key}">${m.icon} ${esc(lineName(l))}</span>`;
   }).join(' › ');
-  return `<button class="card tap" data-j="${i}">
-    <div class="leave ${lt.cls}">${lt.text}</div>
+  let head = `<div class="leave ${lt.cls}">${lt.text}</div>`;
+  if (departed && firstRide) {
+    const ago = Math.max(0, Math.round((Date.now() - depTime(firstRide.origin)) / 60000));
+    head = `<div class="leave gone">${modeOf(firstRide).zh}${ago ? `已開出 ${ago} 分鐘` : '剛開出'}</div>
+      <div class="sub">如已上車,按此查看下車站</div>`;
+  }
+  return `<button class="card tap${departed ? ' departed' : ''}" data-j="${i}">
+    ${head}
     <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達</div>
     <div class="sub">全程 ${total} 分鐘・${changes ? `轉車 ${changes} 次` : '不用轉車'}</div>
     ${delay}
@@ -1174,7 +1276,7 @@ function showJourney(j, goBack, others = []) {
   const sayText = () => steps.map((s) => s.say).join(' ');
   let live = liveNow(leave);
   const draw = (keepScroll) => {
-    const lt = leaveText(leave);
+    const lt = journeyLeaveText(j);
     live = liveNow(leave);
     render(`<button class="back" data-back>← 返回</button>
       <div class="card">
@@ -1218,7 +1320,7 @@ function showJourney(j, goBack, others = []) {
   timers.push(setInterval(() => {
     if (liveNow(leave) !== live) return draw(true);
     const el = $app.querySelector('.leave');
-    if (el) { const lt = leaveText(leave); el.className = `leave ${lt.cls}`; el.innerHTML = lt.text; }
+    if (el) { const lt = journeyLeaveText(j); el.className = `leave ${lt.cls}`; el.innerHTML = lt.text; }
   }, 15000));
 }
 
