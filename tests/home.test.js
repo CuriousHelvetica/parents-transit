@@ -1,0 +1,113 @@
+// Main screen, the two pickers, 🔍 其他地點, ⚙️ 設定 and the live 📍 你在 box.
+const { open, chooseTo, chooseFrom, STOPS } = require('./helpers');
+
+module.exports = async (check) => {
+  const t = await open({
+    places: (name) => (/westfield/i.test(name)
+      ? [{ id: 'w1', name: 'Westfield Burwood, Burwood', type: 'poi', coord: [-33.8771, 151.1036] }]
+      : [{ id: '1', name, type: 'stop', isBest: true, coord: STOPS[4][1] }]),
+    promptAnswer: '西田',
+  });
+  const { page } = t;
+
+  // ---- main screen
+  const h2 = await page.locator('h2').allInnerTexts();
+  check(h2.join('|') === '從哪裡出發?|去哪裡?', `two questions: ${h2.join(' / ')}`);
+  check(await page.locator('h2 .num, [data-when]').count() === 0, 'no numbers, no time question');
+  check((await page.locator('[data-row=from]').innerText()).includes('家'), 'starts from 家');
+  check(await page.locator('[data-row=to].empty').count() === 1, 'destination empty at start');
+  await page.click('[data-search-trip]');
+  check(await page.locator('h1:has-text("去哪裡?")').count() === 1, 'search without a destination opens the destination list');
+  await page.click('[data-back]');
+
+  // ---- pickers
+  await page.click('[data-row=from]');
+  const fromList = await page.locator('.picklist button').allInnerTexts();
+  check(fromList[0].startsWith('🏠 家') && fromList[1].startsWith('📍 現在位置') && fromList[2].startsWith('好市圍站'),
+    `start list: 家, 現在位置, then saved places in order (${fromList.slice(0, 3).map((x) => x.split('\n')[0]).join(', ')})`);
+  check(fromList.length === 40, `start list has 家 + 現在位置 + 38 places (${fromList.length})`);
+  await page.click('[data-back]');
+  await chooseTo(page, '寶活站');
+  check((await page.locator('[data-row=to]').innerText()).includes('寶活站'), 'destination chosen: 寶活站');
+  await chooseFrom(page, '寶活站');
+  check(await page.locator('[data-row=to].empty').count() === 1, 'choosing the destination as the start clears the destination');
+  await page.click('[data-row=to]');
+  const toList = await page.locator('.picklist button').allInnerTexts();
+  check(toList[0].startsWith('🏠 回家') && !toList.some((x) => x.startsWith('寶活站')), 'destination list: 回家 first, start place left out');
+  await page.click('[data-back]');
+  await page.click('[data-reset-trip]');
+  check((await page.locator('[data-row=from]').innerText()).includes('家') && await page.locator('[data-row=to].empty').count() === 1,
+    '↺ 重新開始: back to 家 and no destination');
+
+  // ---- 🔍 其他地點
+  await page.click('[data-row=to]'); await page.click('[data-other]');
+  await page.fill('#q', '伊頻'); await page.click('[data-search]');
+  check((await page.locator('.result').allInnerTexts()).join().includes('Epping Station'), 'Chinese search finds 伊頻 Epping');
+  await page.fill('#q', '不存在'); await page.click('[data-search]');
+  check((await page.locator('#results').innerText()).includes('找不到這個中文名稱'), 'unknown Chinese name: asks for English');
+  await page.fill('#q', 'Westfield Burwood'); await page.press('#q', 'Enter');
+  await page.waitForSelector('.result');
+  await page.click('.result');
+  check((await page.locator('[data-row=to]').innerText()).includes('Westfield Burwood'), 'English search result chosen as destination');
+  const saved = await page.evaluate(() => settings.places.length);
+  check(saved === 38, 'a searched place is not added to the saved places by itself');
+
+  // ---- ⚙️ 設定
+  await page.click('[data-settings]');
+  const version = (await page.locator('.version').innerText());
+  const expected = require('fs').readFileSync(require('path').join(__dirname, '..', 'version.js'), 'utf8').match(/APP_VERSION = '([^']+)'/)[1];
+  check(version.includes(expected), `settings show the version (${expected})`);
+  const firstTwo = () => page.evaluate(() => settings.places.slice(0, 2).map((p) => p.en).join(','));
+  await page.click('[data-up="1"]');
+  check(await firstTwo() === 'Burwood,Hurstville', 'move up: Burwood now first');
+  await page.click('[data-del="0"]');
+  check(await page.evaluate(() => settings.places.length) === 37 && await firstTwo() === 'Hurstville,Blacktown', 'delete: Burwood removed');
+  await page.click('[data-add]'); await page.fill('#q', 'Westfield Burwood'); await page.click('[data-search]');
+  await page.waitForSelector('.result'); await page.click('.result');
+  check(await page.evaluate(() => { const p = settings.places[settings.places.length - 1]; return `${p.zh}/${p.en}`; }) === '西田/Westfield Burwood',
+    'add place: saved with the Chinese name typed');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem(STORE_KEY)).places.length) === 38, 'settings saved on the phone');
+  await page.click('[data-reset]');
+  check(await page.evaluate(() => settings.places.length) === 38 && await firstTwo() === 'Hurstville,Burwood', '還原預設: defaults back');
+  await page.click('[data-testvoice]');
+  check((await page.evaluate(() => window.__said)).some((x) => x.includes('二號月台')), '試聽廣東話 speaks');
+  await page.click('[data-back]');
+
+  // ---- 📍 你在: live while the main screen is open
+  await page.waitForTimeout(800);
+  const box = () => page.locator('#here').innerText();
+  check(/羅德 Rhodes/.test(await box()) && /Shoreline Drive/.test(await box()), `shows suburb and street: ${(await box()).replace(/\n/g, ' / ')}`);
+  const n0 = t.osm.calls;
+  await t.ctx.setGeolocation({ latitude: -33.8304, longitude: 151.0870, accuracy: 10 }); await page.waitForTimeout(800);
+  check(t.osm.calls === n0, 'moved 45 m: no new address lookup');
+  await t.ctx.setGeolocation({ latitude: -33.8340, longitude: 151.0870, accuracy: 10 }); await page.waitForTimeout(800);
+  check(t.osm.calls === n0, 'moved 400 m within 30 s: waits');
+  await page.evaluate(() => { here.at -= 31000; });   // 30 seconds later
+  await t.ctx.setGeolocation({ latitude: -33.8341, longitude: 151.0870, accuracy: 10 }); await page.waitForTimeout(800);
+  check(t.osm.calls === n0 + 1 && /Concord/.test(await box()), `after 30 s: looked up again (${(await box()).split('\n')[0]})`);
+  check(await page.evaluate(() => here.watch !== null), 'GPS on while the main screen is open');
+  await page.click('[data-row=to]');
+  check(await page.evaluate(() => here.watch === null), 'GPS off on another screen');
+  await page.click('[data-back]'); await page.waitForTimeout(300);
+  check(await page.evaluate(() => here.watch !== null), 'GPS back on with the main screen');
+  const n1 = t.osm.calls;
+  await page.click('#here'); await page.waitForTimeout(800);
+  check(t.osm.calls === n1 + 1, 'tap: fresh address lookup');
+  await page.evaluate(() => {
+    navigator.geolocation.getCurrentPosition = (ok, fail) => setTimeout(() => fail({ code: 3 }), 30);
+    here.fixAt = Date.now() - 70000; checkHereStale();
+  });
+  await page.waitForTimeout(300);
+  check(/位置未能更新/.test(await box()) && /Concord/.test(await box()), 'no GPS for a minute: keeps the place, adds 「(位置未能更新)」');
+
+  check(t.errors.length === 0, `no page errors (${t.errors.join(' | ')})`);
+  await t.close();
+
+  // Location permission refused: never a wrong place
+  const d = await open();
+  await d.ctx.clearPermissions();
+  await d.page.reload(); await d.page.waitForTimeout(800);
+  const txt = await d.page.locator('#here').innerText().catch(() => '');
+  check(!/你在/.test(txt), `no permission: no place shown (${txt.replace(/\n/g, ' ') || 'hidden'})`);
+  await d.close();
+};

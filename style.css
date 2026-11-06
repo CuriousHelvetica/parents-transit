@@ -101,7 +101,6 @@ input[type=text], input[type=time] {
 .toggle.three { grid-template-columns: 1fr 1fr 1fr; margin-bottom: 10px; }
 .toggle button .small { font-weight: normal; }
 .toggle + .toggle, .bar + .toggle { margin-top: 10px; }
-.when { font-size: 20px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
 label.grow { display: block; }
 label input[type=date] { margin-top: 4px; }
 input[type=date] {
@@ -109,7 +108,6 @@ input[type=date] {
 }
 .notice details { margin-top: 4px; }
 .notice summary { cursor: pointer; }
-.toggle.sort { margin: 10px 0 4px; }
 .btn.other { display: flex; flex-direction: column; align-items: center; font-size: 24px; border-color: var(--primary); color: var(--primary); }
 .btn.other .en { color: var(--primary); opacity: .8; }
 h1.title .en { display: block; font-size: 20px; color: #666; font-weight: 600; margin-top: 2px; }
@@ -135,7 +133,6 @@ body.alert-off main, body.alert-off main * { color: #fff !important; }
 @keyframes flash { from { background: var(--cream); } to { background: #ffb4a2; } }
 .version { margin-top: 28px; text-align: center; font-size: 15px; color: #888; }
 .version a { color: var(--primary); }
-.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .timepick { align-items: center; }
 .timepick select { flex: 1; font: inherit; font-size: 26px; font-weight: 700; padding: 12px 8px; border-radius: 12px; border: 2px solid var(--border); background: #fff; color: inherit; text-align: center; text-align-last: center; -webkit-appearance: none; appearance: none; }
 h1.route { margin-bottom: 0; }
@@ -148,14 +145,12 @@ button.choice .en { font-size: 20px; }
 .btn.big { font-size: 26px; padding: 18px; margin-top: 10px; }
 .place.here { background: var(--slate); }
 
-.toggle button .plan-sum { display: block; font-size: 17px; font-weight: 600; margin-top: 2px; }
 .plan-card { text-align: center; font-size: 22px; font-weight: 700; color: var(--primary); }
 .toggle button:disabled { opacity: .4; }
 button.oops { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 10; padding: 16px; border-radius: 14px; background: #b3261e; color: #fff; font-size: 22px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
-/* Main screen: title area in a card; the three questions numbered 1 2 3 */
+/* Main screen: title area in a card */
 .hdr { background: #fff; border-radius: 18px; padding: 12px 14px; margin: 4px 0 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 .hdr h1.title { margin-top: 2px; }
-h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--slate); color: #fff; font-size: 18px; margin-right: 8px; vertical-align: 2px; }
 /* Header card: location row under a thin divider */
 button.herebox { display: block; width: 100%; text-align: left; background: none; margin-top: 10px; padding: 10px 0 0; border-top: 2px solid var(--beige); border-radius: 0; line-height: 1.35; }
 .here-line { font-size: 18px; overflow-wrap: anywhere; }

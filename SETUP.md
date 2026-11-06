@@ -87,17 +87,17 @@ On a trip's detail page, **⏰ 提醒我** opens a calendar invite. Tap **Add to
 Below the destination buttons, **🔍 其他地點** opens a search box. Type a station, suburb, address or place in English (e.g. `Eastwood`, `Westfield Burwood`). Station names the app knows also work in Chinese (e.g. 伊頻). Tap a result to see trips straight away; the buttons don't change. To keep it as a button, tap **⭐ 加到常去地點** on the trip screen.
 
 ### Walking directions (🗺️ 地圖指路)
-For trips leaving **now**, each walking step (to a station, bus stop or the destination) has a **🗺️ 地圖指路** button. It opens **Apple Maps** with walking directions from where the phone is now to that exact stop. Check **Settings → Privacy & Security → Location Services → Maps → While Using the App**.
+From 30 minutes before a trip leaves, each walking step (to a station, bus stop or the destination) has a **🗺️ 地圖指路** button. It opens **Apple Maps** with walking directions from where the phone is now to that exact stop. Check **Settings → Privacy & Security → Location Services → Maps → While Using the App**.
 
 ### When to get off (顯示途經車站 / 還有幾個站)
 - Each ride step has **顯示途經車站**: the list of every stop with times. The stop before theirs is marked **🔔 下一站下車,請按鐘**, and their stop **📍 在此下車**.
-- For trips leaving **now**, buses (and trains) also have **📍 上車後按這裡:還有幾個站**. Tap it once on board: the screen shows **還有 N 個站**, crossing off stops using GPS. When the next stop is theirs the whole screen **flashes** with **🔔 下一站下車 請按鐘!**; at their stop it turns **green: 📍 到站,請下車!** Tap **← 結束** when done.
+- From 30 minutes before departure, buses (and trains) also have **📍 上車後按這裡:還有幾個站**. Tap it once on board: the screen shows **還有 N 個站**, crossing off stops using GPS. When the next stop is theirs the whole screen **flashes** with **🔔 下一站下車 請按鐘!**; at their stop it turns **green: 📍 到站,請下車!** Tap **← 結束** when done.
 - The app must stay **open on screen** during the ride (it keeps the screen on by itself on iOS 18.4 or later). iPhone web apps cannot vibrate, so the alert is visual only.
 - **Open the card for the train or bus they actually take.** If they catch one earlier or later on the same line, the countdown still works: it shows **✓ 已上車** when the vehicle leaves and follows the real departure time. If that looks like a different service from the card, a yellow note **⚠️ 可能不是原定班次** asks them to check the platform or on-board display shows their stop (some express trains skip stations).
 - Worth trying once together on a short bus ride.
 
 ### Uber price (🚕 改搭 Uber? 查看價錢)
-For trips leaving **now**, a button at the bottom of the trip list (and on the "no route found" screen) opens the **Uber app** with pickup = their current location and the destination already filled in. Uber then shows the real price. Nothing is booked until they press Uber's own confirm button.
+When a trip leaves within 30 minutes, a button at the bottom of the trip list opens the **Uber app** with pickup = their current location and the destination already filled in. Uber then shows the real price. Nothing is booked until they press Uber's own confirm button.
 - Check **Settings → Uber → Location → While Using the App** so Uber can find them.
 - Worth doing one practice booking together, including confirming the pickup pin at home.
 

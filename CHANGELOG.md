@@ -19,8 +19,8 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - 「X 分鐘後出門」 countdown, departure and arrival times (凌晨 / 清晨 / 早上 / 中午 / 下午 / 晚上), total time, number of changes, delays, service-notice warning.
 - In time order (earliest departure first). At 現在, trains and buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」), so someone who jumped on in a rush can still open theirs.
 - Time bar: ◀ 早一點 / 遲一點 ▶ move 30 minutes (rounded to :00 or :30), ⏱️ 現在 goes back to leave now, 📅🕘 改時間及日期 picks a day and a leave-at or arrive-by time. Trips already fetched for the route are kept in memory, so ◀ ▶ show trips at once while live times refresh in the background.
-- Updates automatically (every minute for trips leaving now).
-- 🚕 改搭 Uber? 查看價錢 (trips leaving now): opens Uber with pickup = current location and the destination filled in.
+- Updates automatically (every minute for trips leaving within about 90 minutes, every 5 minutes for later ones).
+- 🚕 改搭 Uber? 查看價錢 (from 30 minutes before departure): opens Uber with pickup = current location and the destination filled in.
 
 **Trip details**
 - Step by step: walk / board (platform or bus stand, direction, number of stops) / get off (🔄 change or 📍 destination) / 🏁 arrive.
@@ -28,7 +28,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - 🔊 朗讀: reads the steps aloud in Cantonese (directions in short English, as on station displays); tap again to stop.
 - ⏰ 提醒我 (hidden since v1.3.3): adds a calendar event with an alarm before leaving time.
 - 顯示途經車站: every stop with times; 🔔 on the stop before the one to get off at.
-- Trips leaving now:
+- From 30 minutes before departure:
   - 🗺️ 地圖指路: Apple Maps walking directions to each stop.
   - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps. Shows 「✓ 已上車」 once the vehicle leaves; if they caught an earlier or later service on the same line, the stop times follow the real departure, and a yellow 「⚠️ 可能不是原定班次」 note asks them to check the display shows their stop.
 
@@ -42,6 +42,17 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.5.3 — 2026-11-06
+Code review fixes:
+- Service notices are cleaned with a safe parser: HTML inside a notice can no longer run anything in the app.
+- Trains that just left (at ⏱️ 現在) are now fetched first, so they appear one search sooner.
+- The trip list no longer rebuilds itself every 15 seconds: the 「X 分鐘後出門」 lines update in place, and the page is only redrawn when something else changed (a rebuild under a finger could lose a tap).
+- Two trips that share the first train but take different connections are no longer merged into one.
+- Coming back to the app from another app refreshes the trip list's live times at once.
+- 「更新時間」 shows when the trips on screen were fetched, not the last background search.
+- Smaller memory and bookkeeping while a list stays open for a long time; unused styles removed; docs updated for the 30-minute rule.
+- Automated tests added in `tests/` (`npm test`): about 140 checks across logic, main screen, trip list, details, countdown and layout.
 
 ### v1.5.2 — 2026-11-06
 - Jumped on in a rush? At ⏱️ 現在 the list now also shows, greyed at the top, up to 3 trips whose train or bus left in the last 20 minutes: 「火車已開出 X 分鐘 · 如已上車,按此查看下車站」. Tapping one opens its stops and 📍 還有幾個站 as usual; its details page says 已開出 instead of 已錯過.

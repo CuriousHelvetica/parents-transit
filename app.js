@@ -33,8 +33,10 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+// Run when the app comes back on screen (set by the trip list; every other screen clears it)
+let onResume = null;
 // Every screen starts with this: stops timers and the 📍 你在 GPS (the main screen starts it again)
-function clearTimers() { timers.forEach(clearInterval); timers = []; if (typeof stopHereWatch === 'function') stopHereWatch(); }
+function clearTimers() { timers.forEach(clearInterval); timers = []; onResume = null; stopHereWatch(); }
 
 function sydneyParts(d) {
   const p = {};
@@ -166,9 +168,10 @@ function delayMin(stop, kind) {
 
 // Service notices on a leg: [{ key, en }]
 function stripHtml(s) {
-  const div = document.createElement('div');
-  div.innerHTML = String(s || '');
-  return div.textContent.replace(/\s+/g, ' ').trim();
+  // DOMParser builds an inert document: nothing in a notice (images, scripts) can load or run
+  const doc = new DOMParser().parseFromString(String(s || ''), 'text/html');
+  doc.querySelectorAll('script, style').forEach((el) => el.remove());
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
 }
 function noticesOf(leg) {
   const seen = new Set();
@@ -526,6 +529,7 @@ function refreshHere() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return stopHereWatch();
   if (state.screen === 'home') startHereWatch();
+  if (onResume) onResume();
 });
 
 // Time picker: one hour wheel in daily order (清晨 5時 … 晚上 11時, then 凌晨 12時 … 4時) and a minutes
@@ -782,11 +786,13 @@ function timeBarHtml(when) {
 function newTripPool() { return { trips: new Map(), spans: { dep: [], arr: [] }, updated: 0 }; }
 const depMs = (j) => depTime(j.legs[0].origin).getTime();
 const arrMs = (j) => arrTime(j.legs[j.legs.length - 1].destination).getTime();
-// Same trip in two fetches: same first ride (planned time + line) and same lines after it
+// Same trip in two fetches: same first ride (planned time + line), same lines after it and same planned
+// arrival (two trips can share the first train and lines but take different connections)
 function tripKey(j) {
   const rides = j.legs.filter((l) => !modeOf(l).walk);
-  if (!rides.length) return `walk|${j.legs[0].origin.departureTimePlanned || ''}`;
-  return `${rides[0].origin.departureTimePlanned || ''}|${rides.map(lineName).join('>')}`;
+  const end = j.legs[j.legs.length - 1].destination.arrivalTimePlanned || '';
+  if (!rides.length) return `walk|${j.legs[0].origin.departureTimePlanned || ''}|${end}`;
+  return `${rides[0].origin.departureTimePlanned || ''}|${rides.map(lineName).join('>')}|${end}`;
 }
 async function fetchTrips(pool, origin, dest, when) {
   const arrive = isArrive(when);
@@ -802,7 +808,14 @@ async function fetchTrips(pool, origin, dest, when) {
     if (x >= span[0] && x <= span[1] && !keys.has(k)) pool.trips.delete(k);
   }
   js.forEach((j) => pool.trips.set(tripKey(j), j));
-  pool.spans[arrive ? 'arr' : 'dep'].push([span[0], span[1], Date.now()]);
+  const kind = arrive ? 'arr' : 'dep';
+  // Keep the bookkeeping small while a list stays open: drop stretches inside the new one, and
+  // trips and stretches that ended more than 2 hours ago
+  const old = Date.now() - 2 * 3600000;
+  pool.spans[kind] = pool.spans[kind].filter(([a, b]) => !(a >= span[0] && b <= span[1]));
+  pool.spans[kind].push([span[0], span[1], Date.now()]);
+  for (const key of ['dep', 'arr']) pool.spans[key] = pool.spans[key].filter(([, b]) => b >= old);
+  for (const [k, j] of pool.trips) if (arrMs(j) < old) pool.trips.delete(k);
   pool.updated = Date.now();
 }
 // When the trips around t were last fetched (0 = never)
@@ -914,30 +927,48 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
 
   let failed = null;   // error text when the current time's trips could not be fetched
   let waiting = false; // the screen shows 「正在搜尋路線…」
+  let shownNow = [];   // the trips on screen, in card order (read when a card is tapped)
+  let lastHtml = '';
   const again = () => showTrips(originPlace, destPlace, when, { ...opts, pool });
-  const draw = () => {
-    if (!mine()) return;
+  // What the list shows now: trips that just left (at 現在 only), then upcoming trips. null = not fetched yet.
+  const current = () => {
     const upcoming = tripsFor(pool, when, fromHome);
-    waiting = !upcoming;
-    const upKeys = new Set((upcoming || []).map(tripKey));
-    const departed = upcoming && when.mode !== 'later'
+    if (!upcoming) return null;
+    const upKeys = new Set(upcoming.map(tripKey));
+    const departed = when.mode !== 'later'
       ? departedFor(pool, fromHome).filter((j) => !upKeys.has(tripKey(j))) : [];
-    const shown = upcoming && [...departed, ...upcoming];
+    return { upcoming, departed, shown: [...departed, ...upcoming] };
+  };
+  // The page for the trips on screen: { cur, html }
+  const build = () => {
+    const cur = current();
     let body;
-    if (!shown) {
+    if (!cur) {
       body = failed
         ? `<div class="err">無法連接伺服器,請檢查網絡。(${esc(failed)})</div>
            <div class="bar"><button class="btn primary" data-retry>重試</button></div>`
         : '<div class="msg">正在搜尋路線…</div>';
     } else {
+      const { upcoming, departed, shown } = cur;
       // Uber: available when a trip leaves within 30 minutes (or, with no trips found, when searching for now)
       const soon = upcoming.length ? upcoming.some((jj) => liveNow(depTime(jj.legs[0].origin))) : when.mode === 'now';
       const uber = uberBlock(destPlace, upcoming, soon);
-      body = `<div class="sub">更新時間 ${fmtTime(new Date(pool.updated))}・自動更新</div>` + (shown.length
+      const updated = fetchedAt(pool, isArrive(when), whenTime(when)) || pool.updated;
+      body = `<div class="sub">更新時間 ${fmtTime(new Date(updated))}・自動更新</div>` + (shown.length
         ? shown.map((j, i) => journeyCard(j, i, i < departed.length)).join('')
         : '<div class="msg">這段時間找不到路線。<br>請按 ◀ 早一點 / 遲一點 ▶,或改時間。</div>') + uber;
     }
-    render(header() + timeBarHtml(when) + body, true);
+    return { cur, html: header() + timeBarHtml(when) + body };
+  };
+  const draw = () => {
+    if (!mine()) return;
+    const { cur, html } = build();
+    waiting = !cur;
+    shownNow = cur ? cur.shown : [];
+    // Nothing changed: keep the page as it is (redrawing under a finger can lose the tap on iPhone)
+    if (html === lastHtml) return;
+    lastHtml = html;
+    render(html, true);
     $app.querySelector('[data-back]').onclick = showHome;
     wireSave();
     $app.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => setWhen(stepWhen(when, +b.dataset.step)));
@@ -946,10 +977,24 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
       showPlanPage(when.mode === 'later' ? { ...when } : null, (w) => { if (w) when = w; again(); });
     const r = $app.querySelector('[data-retry]');
     if (r) r.onclick = () => { failed = null; draw(); fetchScreen(); };
-    if (shown) {
-      $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-        showJourney(shown[+b.dataset.j], again, [...pool.trips.values()]));
-    }
+    $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
+      showJourney(shownNow[+b.dataset.j], again, [...pool.trips.values()]));
+  };
+  // Every 15 seconds: if only the 「X 分鐘後出門」 lines changed, update them in place; otherwise redraw
+  const withoutLeave = (h) => h.replace(/<div class="leave[^"]*">[\s\S]*?<\/div>/g, '');
+  const tick = () => {
+    if (!mine()) return;
+    const { cur, html } = build();
+    if (html === lastHtml) return;
+    if (!cur || withoutLeave(html) !== withoutLeave(lastHtml)) return draw();
+    const cards = $app.querySelectorAll('[data-j]');
+    cur.shown.forEach((j, i) => {
+      const el = cards[i] && cards[i].querySelector('.leave');
+      const lt = journeyLeaveText(j);
+      if (el) { el.className = `leave ${lt.cls}`; el.innerHTML = lt.text; }
+    });
+    shownNow = cur.shown;
+    lastHtml = html;
   };
   // ---- Fetching ----
   // The time on screen is fetched straight away if it isn't in memory. In the background, about 3 hours
@@ -989,6 +1034,11 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   const nextFetch = () => {
     const arrive = isArrive(when);
     const t = whenTime(when);
+    // 「現在」: first the last DEPARTED_MIN minutes, for trains and buses that have just left
+    if (when.mode !== 'later') {
+      const back = Date.now() - DEPARTED_MIN * 60000;
+      if (knownUntil(pool, false, back) === null && !pending(false, back)) return planAt(back, false);
+    }
     if (!arrive) {
       let x = t;
       while (x < t + AHEAD_MS) {
@@ -1001,11 +1051,6 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
       for (let x = t; x <= t + AHEAD_MS; x += STEP_MS) {
         if (knownUntil(pool, true, x) === null && !pending(true, x)) return planAt(x, true);
       }
-    }
-    // 「現在」: also the last DEPARTED_MIN minutes, for trains and buses that have just left
-    if (when.mode !== 'later') {
-      const back = Date.now() - DEPARTED_MIN * 60000;
-      if (knownUntil(pool, false, back) === null && !pending(false, back)) return planAt(back, false);
     }
     let w = when;
     for (let k = 0; k < BEHIND_STEPS && w.mode === 'later'; k++) {
@@ -1048,13 +1093,14 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     if (waiting) fetchScreen();
     fill();
     clearTimeout(busy);
-    busy = setTimeout(() => mine() && refreshScreen(60000), 800);
-    timers.push(busy);
+    busy = setTimeout(() => mine() && refreshScreen(60000), 800);   // does nothing once the list is closed
   };
   draw();
   await fetchScreen();
   timers.push(setInterval(() => mine() && refreshScreen(55000), 60000));
-  timers.push(setInterval(draw, 15000));
+  timers.push(setInterval(tick, 15000));
+  // Back from another app: update at once instead of at the next minute
+  onResume = () => { if (mine()) { tick(); refreshScreen(30000); } };
 }
 
 // They walk slowly: the first walk from 家 gets HOME_WALK_EXTRA_MIN more minutes, so they leave earlier
@@ -1074,7 +1120,7 @@ function slowerHomeWalk(j) {
 
 // 🚕 Uber: opens the Uber app (or Uber's website) with pickup = the phone's current location and the
 // destination filled in, so the real price shows before booking. Nothing is booked automatically.
-// Only shown for 「現在」 trips, because Uber's price is for right now.
+// Available from LIVE_WINDOW_MIN minutes before departure, because Uber's price is for right now.
 function uberLink(destPlace, journeys) {
   const q = new URLSearchParams({ action: 'setPickup', pickup: 'my_location' });
   const name = destPlace.query || destPlace.en || '';
@@ -1109,7 +1155,7 @@ function showError(header, text, extra = '', retry = null) {
   $app.querySelector('[data-retry]').onclick = () => (retry ? retry() : location.reload());
 }
 
-// Trip details: once the first train or bus has left, say so instead of 「已錯過」 (they may be on it)
+// Once the first train or bus has left, say so instead of 「已錯過」 (they may be on it)
 function journeyLeaveText(j) {
   const r = j.legs.find((l) => !modeOf(l).walk);
   const x = firstRideMs(j);
@@ -1134,7 +1180,7 @@ function journeyCard(j, i, departed = false) {
   const last = j.legs[j.legs.length - 1];
   const leave = depTime(first.origin);
   const arrive = arrTime(last.destination);
-  const lt = leaveText(leave);
+  const lt = journeyLeaveText(j);
   const rides = j.legs.filter((l) => !modeOf(l).walk);
   const changes = Math.max(0, rides.length - 1);
   const total = Math.round((arrive - leave) / 60000);
@@ -1152,14 +1198,9 @@ function journeyCard(j, i, departed = false) {
     if (m.walk) return `<span class="badge m-walk">🚶${Math.max(1, Math.round((l.duration || 0) / 60))}'</span>`;
     return `<span class="badge m-${m.key}">${m.icon} ${esc(lineName(l))}</span>`;
   }).join(' › ');
-  let head = `<div class="leave ${lt.cls}">${lt.text}</div>`;
-  if (departed && firstRide) {
-    const ago = Math.max(0, Math.round((Date.now() - depTime(firstRide.origin)) / 60000));
-    head = `<div class="leave gone">${modeOf(firstRide).zh}${ago ? `已開出 ${ago} 分鐘` : '剛開出'}</div>
-      <div class="sub">如已上車,按此查看下車站</div>`;
-  }
   return `<button class="card tap${departed ? ' departed' : ''}" data-j="${i}">
-    ${head}
+    <div class="leave ${lt.cls}">${lt.text}</div>
+    ${departed ? '<div class="sub">如已上車,按此查看下車站</div>' : ''}
     <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達</div>
     <div class="sub">全程 ${total} 分鐘・${changes ? `轉車 ${changes} 次` : '不用轉車'}</div>
     ${delay}

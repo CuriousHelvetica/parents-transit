@@ -1,0 +1,11 @@
+{
+  "name": "parents-transit",
+  "private": true,
+  "description": "爸媽出行 Sydney Trip Planner. The app itself needs no build; this file is only for running the tests.",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
