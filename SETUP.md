@@ -30,9 +30,21 @@ There are three pieces:
    |--------|------------------|-----------------------------------------|
    | Secret | `TFNSW_API_KEY`  | the key from Step 1                     |
    | Text   | `ALLOWED_ORIGIN` | `https://curioushelvetica.github.io`    |
+   | Text (optional) | `TRANSLATE_MODEL` | translation models to try first, comma-separated (see below) |
 6. Still in **Settings**, go to **Bindings** → **Add binding** → **Workers AI**, and set the variable name to `AI`. Save and deploy. This is what translates service notices into Chinese. It uses Cloudflare's free daily AI allowance; if that allowance ever runs out, notices simply show in English.
 7. Copy the Worker's address, e.g. `https://parents-transit.yourname.workers.dev`.
 8. Quick check: open `<worker address>/tp/trip` in your browser. You should see **Forbidden**. That's correct: it only answers your web page.
+
+### Translation models (when Cloudflare retires one)
+Cloudflare retires Workers AI models from time to time and emails a list of replacements. The Worker tries a list of
+models in order and **moves on to the next one by itself** if a model fails, so translations keep working.
+- The built-in list is at the top of [`worker/worker.js`](worker/worker.js) (`DEFAULT_TRANSLATE_MODELS`).
+- To change it **without touching code**: Worker → **Settings → Variables and Secrets** → set `TRANSLATE_MODEL`
+  (Text) to the new model names, comma-separated, best first, e.g. `@cf/qwen/qwen3.8-27b, @cf/google/gemma-4-26b-a4b-it`.
+  These are tried before the built-in list. Save and deploy.
+- To check: open `<worker address>/status` in a browser. It lists the models in the order they're tried and shows
+  which one translated a test sentence.
+- If every model fails, notices simply show in English (「暫時無法翻譯,請看英文原文」).
 
 ## Step 3 — Point the web page at the Worker
 
@@ -132,6 +144,6 @@ The names in [`names.js`](names.js) are rough sound-alike names I chose. **Pleas
 |---|---|
 | 無法連接伺服器 (can't connect) | Phone has internet? `config.js` has the right Worker address? |
 | Error mentioning HTTP 401/403 | API key wrong or missing in Cloudflare, or `ALLOWED_ORIGIN` doesn't exactly match `https://curioushelvetica.github.io` |
-| 服務通知 stays in English / 暫時無法翻譯 | Check the Workers AI binding is named exactly `AI`. In the Cloudflare dashboard, the Worker's **Logs** show errors |
+| 服務通知 stays in English / 暫時無法翻譯 | Open `<worker address>/status`: it shows which models were tried and why they failed. If they were retired, set new ones in `TRANSLATE_MODEL` (see *Translation models*). Also check the Workers AI binding is named exactly `AI` |
 | 找不到地點 (place not found) | Delete the place and add it again via search |
 | Changes to the site don't show | Wait 2 minutes; then close and reopen the app |

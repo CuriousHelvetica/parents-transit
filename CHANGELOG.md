@@ -43,6 +43,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### Worker update — 2026-11-07 (paste `worker/worker.js` into Cloudflare again)
+- Cloudflare retires `@cf/qwen/qwen3-30b-a3b-fp8` on 20 November 2026. Translation now uses `@cf/qwen/qwen3.8-27b`, and falls back to `@cf/google/gemma-4-26b-a4b-it` (or the next in the list) by itself if a model fails.
+- `TRANSLATE_MODEL` can now hold several models, comma-separated, tried first. New `/status` page shows the model order and which one answers.
+
 ### v1.5.5 — 2026-11-07
 - Start and destination lists always show every place, each in the same spot (回家 now fills the first row of the destination list, like 家 + 現在位置 in the start list), so places can be found by position. The place already chosen on the other side is greyed out in its spot instead of being removed.
 
