@@ -185,3 +185,7 @@ body.alert-off .other-service { background: rgba(255,255,255,.2); }
 .card.departed { background: #f1ede6; box-shadow: none; border: 2px dashed var(--border); }
 .card.departed .times, .card.departed .sub, .card.departed .badge { opacity: .75; }
 .leave.gone { color: #777; font-size: 24px; }
+/* Start / destination lists: 回家 fills the first row (like 家 + 現在位置), so places line up in both lists;
+   the place already chosen on the other side is greyed out in its usual spot */
+.place.wide { grid-column: 1 / -1; }
+.place:disabled { opacity: .3; cursor: default; }

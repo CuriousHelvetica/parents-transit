@@ -119,7 +119,9 @@ module.exports = async (check) => {
   await t.close();
 
   // ---------- quick tapping on a busy line with a slow network ----------
-  t = await open({ api: { every: 6, lag: 2500 } });
+  // Three searches at once, each ~48 minutes of trips per 2 s, keep ahead of 2 taps (60 min) a second.
+  // (At 2.5 s per search the two rates are about equal, which makes the result a coin toss.)
+  t = await open({ api: { every: 6, lag: 2000 } });
   page = t.page;
   await chooseTo(page, '寶活站'); await search(page);
   await page.waitForTimeout(6000);
@@ -129,7 +131,7 @@ module.exports = async (check) => {
     if (await loading(page)) waits++;
     await page.waitForTimeout(400);
   }
-  check(waits === 0, `12 taps 0.5 s apart, a train every 6 min, 2.5 s network: ${12 - waits} of 12 instant`);
+  check(waits === 0, `12 taps 0.5 s apart, a train every 6 min, 2 s network: ${12 - waits} of 12 instant`);
   await t.close();
 
   // ---------- same first train, different connection: both trips listed ----------

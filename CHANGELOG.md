@@ -43,6 +43,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.5.5 — 2026-11-07
+- Start and destination lists always show every place, each in the same spot (回家 now fills the first row of the destination list, like 家 + 現在位置 in the start list), so places can be found by position. The place already chosen on the other side is greyed out in its spot instead of being removed.
+
 ### v1.5.4 — 2026-11-07
 - 賓士鎮站 Bankstown added to the default places (after 菲林明頓站 Flemington) and to the Chinese station names. Phones that already have their places saved don't change by themselves: add it in ⚙️ 設定 → ➕ 新增地點 (the Chinese name is filled in), or 還原預設.
 

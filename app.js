@@ -579,32 +579,32 @@ function setChoice(kind, value) {
   showHome();
 }
 // Full-screen list: 家 / 現在位置 (start) or 回家 (destination), the saved places in 設定 order,
-// and 🔍 其他地點 at the bottom of both lists.
+// and 🔍 其他地點 at the bottom of both lists. Every place is always listed, in the same spot in both lists
+// (回家 fills the first row, like 家 + 現在位置), so they can be found by position. The place already chosen
+// on the other side is greyed out instead of removed.
 function showPicker(kind) {
   clearTimers();
   state.screen = 'pick';
   const isFrom = kind === 'from';
+  const other = isFrom ? state.to : state.from;
   const items = [];
   if (isFrom) {
     items.push({ v: 'home', html: '🏠 家<span class="en">Home</span>', cls: 'home' });
     items.push({ v: 'here', html: '📍 現在位置<span class="en">Current location</span>', cls: 'here' });
-  } else if (state.from !== 'home') {
-    items.push({ v: 'home', html: '🏠 回家<span class="en">Home</span>', cls: 'home' });
+  } else {
+    items.push({ v: 'home', html: '🏠 回家<span class="en">Home</span>', cls: 'home wide' });
   }
   settings.places.forEach((pl, i) => {
-    if (!isFrom && samePlace(pl, state.from)) return;
     items.push({ v: i, html: `${esc(pl.zh || pl.en)}<span class="en">${esc(pl.zh ? pl.en : '')}</span>` });
   });
+  const valueOf = (v) => (typeof v === 'number' ? settings.places[v] : v);
   render(`<button class="back" data-back>← 返回</button>
     <h1>${isFrom ? '從哪裡出發?' : '去哪裡?'}</h1>
     <div class="grid picklist">${items.map((it, k) =>
-      `<button class="place ${it.cls || ''}" data-pick="${k}">${it.html}</button>`).join('')}</div>
+      `<button class="place ${it.cls || ''}" data-pick="${k}"${samePlace(valueOf(it.v), other) ? ' disabled' : ''}>${it.html}</button>`).join('')}</div>
     <div class="bar"><button class="btn other" data-other>🔍 其他地點<span class="en">Other places</span></button></div>`);
   $app.querySelector('[data-back]').onclick = showHome;
-  $app.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => {
-    const v = items[+b.dataset.pick].v;
-    setChoice(kind, typeof v === 'number' ? settings.places[v] : v);
-  });
+  $app.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => setChoice(kind, valueOf(items[+b.dataset.pick].v)));
   $app.querySelector('[data-other]').onclick = () => showSearchPlace(kind);
 }
 

@@ -32,13 +32,32 @@ module.exports = async (check) => {
   check(fl > 0 && fromList[fl + 1].replace(/\s+/g, ' ').startsWith('賓士鎮站 Bankstown'), '賓士鎮站 Bankstown comes right after 菲林明頓站');
   check(fromList.length === N + 2, `start list has 家 + 現在位置 + ${N} places (${fromList.length})`);
   await page.click('[data-back]');
+  // Every place in every list, each in the same spot in both lists; the other side's choice greyed out
+  const spot = (label) => page.locator(`.picklist button:has-text("${label}")`).first().boundingBox();
+  await page.click('[data-row=to]');
+  const toHome = page.locator('.picklist button').first();
+  check((await toHome.innerText()).startsWith('🏠 回家') && await toHome.isDisabled(), 'start 家: 回家 still first in the destination list, greyed');
+  const toSpots = [await spot('寶活站'), await spot('中央站'), await spot('賓士鎮站')];
+  check(await page.locator('.picklist button').count() === N + 1, `destination list has 回家 + all ${N} places`);
+  await page.click('[data-back]');
+  await page.click('[data-row=from]');
+  const fromSpots = [await spot('寶活站'), await spot('中央站'), await spot('賓士鎮站')];
+  check(toSpots.every((b, i) => Math.abs(b.x - fromSpots[i].x) < 1 && Math.abs(b.y - fromSpots[i].y) < 1),
+    'each place is in the same spot in the start and destination lists');
+  await page.click('[data-back]');
   await chooseTo(page, '寶活站');
   check((await page.locator('[data-row=to]').innerText()).includes('寶活站'), 'destination chosen: 寶活站');
-  await chooseFrom(page, '寶活站');
-  check(await page.locator('[data-row=to].empty').count() === 1, 'choosing the destination as the start clears the destination');
+  await page.click('[data-row=from]');
+  check(await page.locator('.picklist button:has-text("寶活站")').isDisabled() && await page.locator('.picklist button:disabled').count() === 1,
+    'start list: 寶活站 (the destination) greyed in its spot, nothing else');
+  await page.click('.picklist button:has-text("寶活站")', { force: true }).catch(() => {});
+  check(await page.locator('h1:has-text("從哪裡出發?")').count() === 1, 'tapping the greyed place does nothing');
+  await page.click('.picklist button:has-text("中央站")');
   await page.click('[data-row=to]');
   const toList = await page.locator('.picklist button').allInnerTexts();
-  check(toList[0].startsWith('🏠 回家') && !toList.some((x) => x.startsWith('寶活站')), 'destination list: 回家 first, start place left out');
+  check(toList[0].startsWith('🏠 回家') && !(await page.locator('.picklist button').first().isDisabled())
+    && await page.locator('.picklist button:has-text("中央站")').isDisabled(), 'start 中央站: 回家 available, 中央站 greyed');
+  check(toList.length === N + 1, 'destination list still has every place');
   await page.click('[data-back]');
   await page.click('[data-reset-trip]');
   check((await page.locator('[data-row=from]').innerText()).includes('家') && await page.locator('[data-row=to].empty').count() === 1,
