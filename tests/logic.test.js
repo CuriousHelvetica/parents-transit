@@ -91,6 +91,25 @@ module.exports = async (check) => {
   }, MIN);
   check(JSON.stringify(ku) === '[90,null,0]', `knownUntil: from 10 -> 90, gap at 100 -> unknown, arrive-by from 80 -> 0 (${ku.join(', ')})`);
 
+  // Arrive-by lists: trips arriving in the hour before; if none, the last one that makes it
+  const arriveBy = await ev((MIN) => {
+    const d = sydneyDate(1);
+    const t = sydneyEpoch(d, '12:00');
+    const trip = (arrMin) => ({ legs: [{ transportation: { disassembledName: 'T9', product: { class: 1 } },
+      origin: { departureTimePlanned: new Date(t + (arrMin - 20) * MIN).toISOString() },
+      destination: { arrivalTimePlanned: new Date(t + arrMin * MIN).toISOString() } }] });
+    const listFor = (arrs) => {
+      const pool = newTripPool();
+      arrs.forEach((a) => { const j = trip(a); pool.trips.set(tripKey(j), j); });
+      pool.spans.arr.push([t - 300 * MIN, t, 0]);
+      return tripsFor(pool, { mode: 'later', date: d, time: '12:00', arrive: true }, false)
+        .map((j) => Math.round((arrMs(j) - t) / MIN));
+    };
+    return { busy: listFor([-5, -20, -35, -50, -65, -80, 10]), quiet: listFor([-100, -200]) };
+  }, MIN);
+  check(JSON.stringify(arriveBy.busy) === '[-50,-35,-20,-5]', `arrive by 12:00, busy line: arrivals ${arriveBy.busy.join(', ')} min (the hour before, earliest first)`);
+  check(JSON.stringify(arriveBy.quiet) === '[-100]', `arrive by 12:00, quiet line: only the last one that makes it (${arriveBy.quiet.join(', ')} min)`);
+
   // Stop countdown: which stop has the bus reached?
   const sp = await ev((MIN) => {
     const now = Date.now();

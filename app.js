@@ -738,6 +738,7 @@ function showPlanPage(draftIn, done) {
 // ---------- Time on the trip list: ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶ ----------
 const STEP_MS = 30 * 60000;
 const SHOW_TRIPS = 8;   // trips shown at a time
+const ARRIVE_WINDOW_MS = 60 * 60000;   // arrive-by lists: trips arriving in the hour before the time
 // 'YYYY-MM-DD', 'HH:MM' (Sydney time) -> milliseconds. Two passes settle the daylight-saving offset.
 function sydneyEpoch(date, time) {
   const [y, mo, d] = date.split('-').map(Number);
@@ -844,7 +845,11 @@ function tripsFor(pool, when, fromHome) {
   if (edge === null) return null;
   let list = [...pool.trips.values()];
   if (arrive) {
+    // Arrive by: only trips arriving in the hour before the time (the useful ones, all in view);
+    // on a quiet line with none in that hour, the one trip that arrives last before it
     list = list.filter((j) => arrMs(j) <= t + 60000 && arrMs(j) >= edge).sort((a, b) => arrMs(b) - arrMs(a));
+    const inHour = list.filter((j) => arrMs(j) >= t - ARRIVE_WINDOW_MS);
+    list = inHour.length ? inHour : list.slice(0, 1);
   } else {
     // A few minutes' leeway: Transport for NSW sometimes includes a trip just before the asked time
     list = list.filter((j) => depMs(j) >= t - 5 * 60000 && depMs(j) <= edge).sort((a, b) => depMs(a) - depMs(b));

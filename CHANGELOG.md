@@ -17,7 +17,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 
 **Trip list**
 - 「X 分鐘後出門」 countdown, departure and arrival times (凌晨 / 清晨 / 早上 / 中午 / 下午 / 晚上), total time, number of changes, delays, service-notice warning.
-- In time order (earliest departure first). At 現在, trains and buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」), so someone who jumped on in a rush can still open theirs.
+- In time order (earliest departure first). Arrive-by: only trips arriving in the hour before the chosen time. At 現在, trains and buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」), so someone who jumped on in a rush can still open theirs.
 - Time bar: ◀ 早一點 / 遲一點 ▶ move 30 minutes (rounded to :00 or :30), ⏱️ 現在 goes back to leave now, 📅🕘 改時間及日期 picks a day and a leave-at or arrive-by time. Trips already fetched for the route are kept in memory, so ◀ ▶ show trips at once while live times refresh in the background.
 - Updates automatically (every minute for trips leaving within about 90 minutes, every 5 minutes for later ones).
 - 🚕 改搭 Uber? 查看價錢 (from 30 minutes before departure): opens Uber with pickup = current location and the destination filled in.
@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.5.6 — 2026-11-07
+- Arrive-by lists (改時間及日期 → 🏁 到達時間) now show only the trips arriving in the hour before the chosen time, earliest first, so the one that arrives just in time is in view instead of at the bottom of a 2-hour list. On a quiet line with nothing in that hour, the last trip that still makes it is shown. ◀ 早一點 for earlier ones.
 
 ### Worker update — 2026-11-07 (paste `worker/worker.js` into Cloudflare again)
 - Cloudflare retires `@cf/qwen/qwen3-30b-a3b-fp8` on 20 November 2026. Translation now uses `@cf/qwen/qwen3.8-27b`, and falls back to `@cf/google/gemma-4-26b-a4b-it` (or the next in the list) by itself if a model fails.

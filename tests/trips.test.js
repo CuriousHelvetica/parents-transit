@@ -58,7 +58,9 @@ module.exports = async (check) => {
   await page.click('[data-confirm]'); await page.waitForSelector('[data-j]');
   check(/明天 早上 9:00 前到達/.test(await whenx(page)), `✓ 確定: ${await whenx(page)}`);
   const arr = await page.$$eval('[data-j] .times', (els) => els.map((e) => e.innerText.split('→')[1]));
-  check(arr.length > 0 && arr.every((x) => minutesOf(x) <= 9 * 60), `arrive-by: every trip arrives by 9:00 (${arr.length})`);
+  check(arr.length > 0 && arr.every((x) => minutesOf(x) <= 9 * 60 && minutesOf(x) >= 8 * 60), `arrive-by: only trips arriving 8:00–9:00 (${arr.map((x) => x.trim()).join(', ')})`);
+  check(minutesOf(arr[arr.length - 1]) >= 9 * 60 - 15, 'arrive-by: the one arriving just before 9:00 is in the list (last)');
+  check(minutesOf(arr[0]) <= minutesOf(arr[arr.length - 1]), 'arrive-by: earliest first');
   await page.waitForTimeout(1500);
   await page.click('[data-step="1"]'); await page.waitForTimeout(100);
   check(/明天 早上 9:30 前到達/.test(await whenx(page)) && await loading(page) === 0, '▶ on an arrive-by plan moves the arrival time, instantly');
@@ -140,6 +142,18 @@ module.exports = async (check) => {
   await chooseFrom(page, '寶活站'); await chooseTo(page, '中央站'); await search(page);
   const firstTimes = await page.$$eval('.card:not(.departed) .times', (els) => els.map((e) => e.innerText.split('→')[0].trim()));
   check(firstTimes[0] === firstTimes[1], `two trips with the same first train both shown (${firstTimes.slice(0, 2).join(' / ')})`);
+  await t.close();
+
+  // ---------- arrive-by on a quiet line (a train every 90 minutes) ----------
+  t = await open({ api: { walk: false, every: 90 } });
+  page = t.page;
+  await chooseFrom(page, '寶活站'); await chooseTo(page, '中央站'); await search(page);
+  await page.click('[data-change]');
+  await page.click('[data-day]:nth-child(2)'); await page.click('[data-arrive="1"]');
+  await page.selectOption('[data-hour]', '12'); await page.selectOption('[data-min]', '0');
+  await page.click('[data-confirm]'); await page.waitForSelector('[data-j]');
+  const quiet = await page.$$eval('[data-j] .times', (els) => els.map((e) => e.innerText.split('→')[1].trim()));
+  check(quiet.length >= 1 && quiet.every((x) => minutesOf(x) <= 12 * 60), `quiet line: a trip arriving by 12:00 is shown (${quiet.join(', ')})`);
   await t.close();
 
   // ---------- errors ----------
