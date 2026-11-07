@@ -162,7 +162,7 @@ module.exports = async (check) => {
   await page.waitForSelector('.result'); await page.click('.result');
   await search(page);
   await page.click('[data-save]');
-  check((await page.locator('.sub.ontime').innerText()).includes('已加到常去地點') && await page.evaluate(() => settings.places.length) === 39,
+  check((await page.locator('.sub.ontime').innerText()).includes('已加到常去地點') && await page.evaluate(() => settings.places.length === DEFAULT_PLACES.length + 1),
     '⭐ 加到常去地點 saves it');
   await t.close();
 

@@ -10,6 +10,7 @@ const ZH_NAMES = {
   'Blacktown': '黑鎮',
   'Riverwood': '河木',
   'Flemington': '菲林明頓',
+  'Bankstown': '賓士鎮',
   'Circular Quay': '環形碼頭',
   'Strathfield': '史卓菲',
   'Town Hall': '市政廳',
@@ -50,7 +51,7 @@ const NOT_TRAIN_STATIONS = ['Chinatown', 'Carlingford'];
 // The buttons on the main screen the first time the app opens (editable in 設定), in order.
 const DEFAULT_HOME = { zh: '家', en: 'Home', query: 'Rhodes Station' };
 const DEFAULT_ORDER = [
-  'Hurstville', 'Burwood', 'Blacktown', 'Riverwood', 'Flemington', 'Chatswood', 'Parramatta', 'Cabramatta',
+  'Hurstville', 'Burwood', 'Blacktown', 'Riverwood', 'Flemington', 'Bankstown', 'Chatswood', 'Parramatta', 'Cabramatta',
   'Eastwood', 'Gordon', 'Campsie', 'Kogarah', 'Carlingford', 'Chinatown', 'Central', 'Circular Quay',
   'Strathfield', 'Town Hall', 'Redfern', 'Hornsby', 'Epping', 'Wynyard', 'Sydenham', 'Wolli Creek',
   'Meadowbank', 'Concord West', 'North Strathfield', 'North Sydney', 'Bondi Junction', 'Martin Place',

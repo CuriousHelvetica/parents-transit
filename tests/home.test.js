@@ -1,6 +1,9 @@
 // Main screen, the two pickers, 🔍 其他地點, ⚙️ 設定 and the live 📍 你在 box.
 const { open, chooseTo, chooseFrom, STOPS } = require('./helpers');
 
+// How many default places names.js has (so adding a station doesn't break the tests)
+const N = (require('fs').readFileSync(require('path').join(__dirname, '..', 'names.js'), 'utf8').match(/const DEFAULT_ORDER = \[([\s\S]*?)\];/)[1].match(/'[^']+'/g) || []).length;
+
 module.exports = async (check) => {
   const t = await open({
     places: (name) => (/westfield/i.test(name)
@@ -25,7 +28,9 @@ module.exports = async (check) => {
   const fromList = await page.locator('.picklist button').allInnerTexts();
   check(fromList[0].startsWith('🏠 家') && fromList[1].startsWith('📍 現在位置') && fromList[2].startsWith('好市圍站'),
     `start list: 家, 現在位置, then saved places in order (${fromList.slice(0, 3).map((x) => x.split('\n')[0]).join(', ')})`);
-  check(fromList.length === 40, `start list has 家 + 現在位置 + 38 places (${fromList.length})`);
+  const fl = fromList.findIndex((x) => x.startsWith('菲林明頓站'));
+  check(fl > 0 && fromList[fl + 1].replace(/\s+/g, ' ').startsWith('賓士鎮站 Bankstown'), '賓士鎮站 Bankstown comes right after 菲林明頓站');
+  check(fromList.length === N + 2, `start list has 家 + 現在位置 + ${N} places (${fromList.length})`);
   await page.click('[data-back]');
   await chooseTo(page, '寶活站');
   check((await page.locator('[data-row=to]').innerText()).includes('寶活站'), 'destination chosen: 寶活站');
@@ -50,7 +55,7 @@ module.exports = async (check) => {
   await page.click('.result');
   check((await page.locator('[data-row=to]').innerText()).includes('Westfield Burwood'), 'English search result chosen as destination');
   const saved = await page.evaluate(() => settings.places.length);
-  check(saved === 38, 'a searched place is not added to the saved places by itself');
+  check(saved === N, 'a searched place is not added to the saved places by itself');
 
   // ---- ⚙️ 設定
   await page.click('[data-settings]');
@@ -61,14 +66,14 @@ module.exports = async (check) => {
   await page.click('[data-up="1"]');
   check(await firstTwo() === 'Burwood,Hurstville', 'move up: Burwood now first');
   await page.click('[data-del="0"]');
-  check(await page.evaluate(() => settings.places.length) === 37 && await firstTwo() === 'Hurstville,Blacktown', 'delete: Burwood removed');
+  check(await page.evaluate(() => settings.places.length) === N - 1 && await firstTwo() === 'Hurstville,Blacktown', 'delete: Burwood removed');
   await page.click('[data-add]'); await page.fill('#q', 'Westfield Burwood'); await page.click('[data-search]');
   await page.waitForSelector('.result'); await page.click('.result');
   check(await page.evaluate(() => { const p = settings.places[settings.places.length - 1]; return `${p.zh}/${p.en}`; }) === '西田/Westfield Burwood',
     'add place: saved with the Chinese name typed');
-  check(await page.evaluate(() => JSON.parse(localStorage.getItem(STORE_KEY)).places.length) === 38, 'settings saved on the phone');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem(STORE_KEY)).places.length) === N, 'settings saved on the phone');
   await page.click('[data-reset]');
-  check(await page.evaluate(() => settings.places.length) === 38 && await firstTwo() === 'Hurstville,Burwood', '還原預設: defaults back');
+  check(await page.evaluate(() => settings.places.length) === N && await firstTwo() === 'Hurstville,Burwood', '還原預設: defaults back');
   await page.click('[data-testvoice]');
   check((await page.evaluate(() => window.__said)).some((x) => x.includes('二號月台')), '試聽廣東話 speaks');
   await page.click('[data-back]');
