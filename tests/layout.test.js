@@ -22,6 +22,13 @@ module.exports = async (check) => {
     const bar = await page.evaluate(() => [...document.querySelectorAll('.tbar button, .tb-change')].every((b) => b.getBoundingClientRect().right <= innerWidth && b.scrollWidth <= b.clientWidth + 1));
     if (!bar) bad.push('time bar buttons');
     await page.click('[data-change]'); await look('change time page');
+    // 改時間及日期 fits one iPhone 14 Pro screen (852 pt minus status bar and home bar = 759)
+    if (width === 393) {
+      await page.setViewportSize({ width, height: 759 });
+      const bottom = await page.evaluate(() => document.querySelector('[data-confirm]').getBoundingClientRect().bottom);
+      check(bottom <= 759, `改時間及日期: ✓ 確定 visible without scrolling on an iPhone 14 Pro (bottom at ${Math.round(bottom)} of 759)`);
+      await page.setViewportSize({ width, height: 800 });
+    }
     await page.click('[data-cancel]'); await page.waitForSelector('[data-j]');
     await page.click('.card:not(.departed)'); await page.waitForSelector('.step');
     await page.click('details.stops summary'); await page.click('details.notices summary'); await look('trip details');

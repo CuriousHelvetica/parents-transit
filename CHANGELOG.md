@@ -20,7 +20,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - In time order (earliest departure first). Arrive-by: only trips arriving in the hour before the chosen time. At 現在, trains and buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」), so someone who jumped on in a rush can still open theirs.
 - Time bar: ◀ 早一點 / 遲一點 ▶ move 30 minutes (rounded to :00 or :30), ⏱️ 現在 goes back to leave now, 📅🕘 改時間及日期 picks a day and a leave-at or arrive-by time. Trips already fetched for the route are kept in memory, so ◀ ▶ show trips at once while live times refresh in the background.
 - Updates automatically (every minute for trips leaving within about 90 minutes, every 5 minutes for later ones).
-- 🚕 改搭 Uber? 查看價錢 (from 30 minutes before departure): opens Uber with pickup = current location and the destination filled in.
+- 🚕 改搭 Uber? 查看價錢 (always; a price guide for planned trips): opens Uber with pickup = current location and the destination filled in.
 
 **Trip details**
 - Step by step: walk / board (platform or bus stand, direction, number of stops) / get off (🔄 change or 📍 destination) / 🏁 arrive.
@@ -42,6 +42,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.5.7 — 2026-11-07
+- 改時間及日期 fits on one iPhone screen: title beside ✕ 取消, two-line day buttons (今天 / 11月7日 (六)), 「或選擇其他日子」 beside its date box, and the summary shown on the ✓ 確定 button instead of a separate card.
+- 🚕 改搭 Uber? 查看價錢 is always available, not only from 30 minutes before departure: Uber shows today's price from where the phone is, as a guide.
 
 ### v1.5.6 — 2026-11-07
 - Arrive-by lists (改時間及日期 → 🏁 到達時間) now show only the trips arriving in the hour before the chosen time, earliest first, so the one that arrives just in time is in view instead of at the bottom of a 2-hour list. On a quiet line with nothing in that hour, the last trip that still makes it is shown. ◀ 早一點 for earlier ones.

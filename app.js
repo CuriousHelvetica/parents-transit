@@ -694,15 +694,15 @@ function showPlanPage(draftIn, done) {
     const [, m, d] = ymd.split('-').map(Number);
     const wd = WEEKDAYS[new Date(Date.UTC(...ymd.split('-').map((x, k) => (k === 1 ? x - 1 : +x)))).getUTCDay()];
     const off = o === 0 && !todayLeft;   // nothing left to plan today
-    return `<button data-day="${ymd}" class="${draft.date === ymd ? 'on' : ''}"${off ? ' disabled' : ''}>${['今天', '明天', '後天'][o]}<br><span class="small">${m}月${d}日<br>星期${wd}</span></button>`;
+    return `<button data-day="${ymd}" class="${draft.date === ymd ? 'on' : ''}"${off ? ' disabled' : ''}>${['今天', '明天', '後天'][o]}<br><span class="small">${m}月${d}日 (${wd})</span></button>`;
   }).join('');
   const otherDay = ![0, 1, 2].some((o) => sydneyDate(o) === draft.date);
-  render(`<button class="back" data-cancel>✕ 取消</button>
-    <h1>甚麼時候?</h1>
+  // Fits one iPhone screen: title beside 取消, two-line day buttons, the summary on the 確定 button
+  render(`<div class="planhead"><button class="back" data-cancel>✕ 取消</button><h1>改時間及日期</h1></div>
     <h2>哪一天?</h2>
     <div class="toggle three">${dayChips}</div>
-    <div class="bar"><label class="grow small">或選擇其他日子
-      <input type="date" id="otherDate" min="${sydneyDate(0)}" value="${otherDay ? draft.date : ''}"></label></div>
+    <label class="otherday"><span class="small">或選擇其他日子</span>
+      <input type="date" id="otherDate" min="${sydneyDate(0)}" value="${otherDay ? draft.date : ''}"></label>
     <h2>出發還是到達?</h2>
     <div class="toggle">
       <button data-arrive="0" class="${draft.arrive ? '' : 'on'}">🚶 出發時間</button>
@@ -710,8 +710,7 @@ function showPlanPage(draftIn, done) {
     </div>
     <h2>幾點?</h2>
     ${timePickerHtml(draft.time, limit)}
-    <div class="card plan-card" id="whenSummary">${esc(whenSummary(draft))}</div>
-    <div class="bar"><button class="btn primary big" data-confirm>✓ 確定</button></div>`, true);
+    <div class="bar"><button class="btn primary big confirm" data-confirm>✓ 確定<span id="whenSummary">${esc(whenSummary(draft))}</span></button></div>`, true);
   $app.querySelector('[data-cancel]').onclick = () => done(null);
   $app.querySelector('[data-confirm]').onclick = () => done({ ...clampPlan(draft), mode: 'later' });
   $app.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => { draft.date = b.dataset.day; showPlanPage(draft, done); });
@@ -955,9 +954,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
         : '<div class="msg">正在搜尋路線…</div>';
     } else {
       const { upcoming, departed, shown } = cur;
-      // Uber: available when a trip leaves within 30 minutes (or, with no trips found, when searching for now)
-      const soon = upcoming.length ? upcoming.some((jj) => liveNow(depTime(jj.legs[0].origin))) : when.mode === 'now';
-      const uber = uberBlock(destPlace, upcoming, soon);
+      const uber = uberBlock(destPlace, upcoming);
       const updated = fetchedAt(pool, isArrive(when), whenTime(when)) || pool.updated;
       body = `<div class="sub">更新時間 ${fmtTime(new Date(updated))}・自動更新</div>` + (shown.length
         ? shown.map((j, i) => journeyCard(j, i, i < departed.length)).join('')
@@ -1125,7 +1122,7 @@ function slowerHomeWalk(j) {
 
 // 🚕 Uber: opens the Uber app (or Uber's website) with pickup = the phone's current location and the
 // destination filled in, so the real price shows before booking. Nothing is booked automatically.
-// Available from LIVE_WINDOW_MIN minutes before departure, because Uber's price is for right now.
+// Always available: Uber shows today's price from where the phone is now, a guide for planned trips too.
 function uberLink(destPlace, journeys) {
   const q = new URLSearchParams({ action: 'setPickup', pickup: 'my_location' });
   const name = destPlace.query || destPlace.en || '';
@@ -1145,8 +1142,7 @@ function uberLink(destPlace, journeys) {
   q.set('dropoff[formatted_address]', /NSW/.test(name) ? name : `${name}, NSW`);
   return `https://m.uber.com/ul/?${q}`;
 }
-function uberBlock(destPlace, journeys, active = true) {
-  if (!active) return `<div class="btn uber off">🚕 改搭 Uber? 查看價錢<span class="small">${LIVE_NOTE}</span></div>`;
+function uberBlock(destPlace, journeys) {
   return `<a class="btn uber" href="${esc(uberLink(destPlace, journeys))}" target="_blank" rel="noopener">
     🚕 改搭 Uber? 查看價錢
     <span class="small">會打開 Uber app,起點用你現在的位置,目的地已經填好。按確認才會叫車。</span></a>`;
@@ -1304,7 +1300,7 @@ function journeySteps(j) {
   return steps;
 }
 
-// 🗺️ 地圖指路, 📍 還有幾個站 and 🚕 Uber use the phone's location (or today's price), so they are
+// 🗺️ 地圖指路 and 📍 還有幾個站 use the phone's location, so they are
 // available from LIVE_WINDOW_MIN minutes before departure, however the trip was searched; before that
 // they are shown greyed out with the reason, so nothing seems to vanish.
 const LIVE_WINDOW_MIN = 30;

@@ -101,8 +101,6 @@ input[type=text], input[type=time] {
 .toggle.three { grid-template-columns: 1fr 1fr 1fr; margin-bottom: 10px; }
 .toggle button .small { font-weight: normal; }
 .toggle + .toggle, .bar + .toggle { margin-top: 10px; }
-label.grow { display: block; }
-label input[type=date] { margin-top: 4px; }
 input[type=date] {
   width: 100%; font: inherit; padding: 12px; border-radius: 12px; border: 2px solid var(--border); background: #fff; min-height: 52px;
 }
@@ -145,7 +143,15 @@ button.choice .en { font-size: 20px; }
 .btn.big { font-size: 26px; padding: 18px; margin-top: 10px; }
 .place.here { background: var(--slate); }
 
-.plan-card { text-align: center; font-size: 22px; font-weight: 700; color: var(--primary); }
+/* 改時間及日期: everything on one screen */
+.planhead { display: flex; align-items: center; gap: 14px; }
+.planhead h1 { font-size: 26px; margin: 0; }
+.planhead + h2 { margin-top: 12px; }
+.otherday { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.otherday .small { flex: none; }
+.otherday input[type=date] { flex: 1; min-width: 0; margin: 0; min-height: 46px; padding: 8px 10px; }
+.btn.confirm { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px; }
+.btn.confirm #whenSummary { font-size: 18px; font-weight: 600; opacity: .95; }
 .toggle button:disabled { opacity: .4; }
 button.oops { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 10; padding: 16px; border-radius: 14px; background: #b3261e; color: #fff; font-size: 22px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 /* Main screen: title area in a card */
@@ -162,7 +168,7 @@ details.notices { margin-top: 8px; }
 details.notices summary { color: #777; font-weight: 600; cursor: pointer; font-size: 18px; }
 .notice.severe { background: #fdecea; border-left-color: #b3261e; }
 /* Live buttons before the 30-minute window: greyed out with the reason */
-.maplink.off, .btn.track:disabled, .btn.uber.off { opacity: .45; cursor: default; }
+.maplink.off, .btn.track:disabled { opacity: .45; cursor: default; }
 .offnote { font-size: 15px; color: #777; margin-top: 2px; }
 .nowrap { white-space: nowrap; }
 .boarded { font-size: 18px; color: var(--sage); font-weight: 700; margin-left: 6px; }

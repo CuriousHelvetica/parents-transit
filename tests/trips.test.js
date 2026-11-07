@@ -89,7 +89,7 @@ module.exports = async (check) => {
   await page.click('[data-back]'); await page.waitForSelector('[data-j]');
   for (let k = 0; k < 4; k++) await page.click('[data-step="1"]');
   await page.waitForTimeout(1500);
-  check(await page.locator('.btn.uber.off').count() === 1, '2 hours ahead: Uber greyed');
+  check(await page.locator('a.btn.uber').count() === 1 && await page.locator('.btn.uber.off').count() === 0, '2 hours ahead: Uber still available (price guide)');
   await page.click('[data-j="0"]'); await page.waitForSelector('.step');
   check(await page.locator('.maplink.off').count() > 0 && await page.locator('.btn.track[disabled]').count() === 1
     && (await page.locator('.offnote').first().innerText()).includes('30 分鐘'), 'trip 2 hours ahead: live buttons greyed with 「出發前 30 分鐘才可使用」');

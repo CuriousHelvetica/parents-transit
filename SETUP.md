@@ -109,7 +109,7 @@ From 30 minutes before a trip leaves, each walking step (to a station, bus stop 
 - Worth trying once together on a short bus ride.
 
 ### Uber price (🚕 改搭 Uber? 查看價錢)
-When a trip leaves within 30 minutes, a button at the bottom of the trip list opens the **Uber app** with pickup = their current location and the destination already filled in. Uber then shows the real price. Nothing is booked until they press Uber's own confirm button.
+A button at the bottom of the trip list (any time, also for planned trips, as a price guide) opens the **Uber app** with pickup = their current location and the destination already filled in. Uber then shows the real price. Nothing is booked until they press Uber's own confirm button.
 - Check **Settings → Uber → Location → While Using the App** so Uber can find them.
 - Worth doing one practice booking together, including confirming the pickup pin at home.
 
@@ -132,7 +132,7 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
 5. Each card says **「X 分鐘後出門」** (leave in X minutes). At ⏱️ 現在, trains or buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」): if they jumped on in a rush, tap theirs to see the stops and 📍 還有幾個站. Tap a card for step-by-step directions; **← 返回** comes back to the same list.
 6. **⚠️ 服務通知** (service notices) are translated into Chinese; tap 英文原文 for the English.
 7. **🔊 朗讀** reads the steps aloud in Cantonese (tap again to stop).
-8. For trips leaving within 30 minutes: **🗺️ 地圖指路** (walking directions), **📍 上車後按這裡:還有幾個站** (stop countdown on the bus), **🚕 改搭 Uber? 查看價錢**.
+8. For trips leaving within 30 minutes: **🗺️ 地圖指路** (walking directions), **📍 上車後按這裡:還有幾個站** (stop countdown on the bus). **🚕 改搭 Uber? 查看價錢** is always there.
 
 ## Checking the Chinese place names
 
