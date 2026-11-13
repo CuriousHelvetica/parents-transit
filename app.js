@@ -575,13 +575,17 @@ function setChoice(kind, value) {
     if (samePlace(state.to, value)) state.to = null;   // can't go from a place to itself
   } else {
     state.to = value;
+    if (value === 'home') {
+      if (state.from === 'home') state.from = 'here';   // home from home makes no sense: from where they are now
+      return showTrips(asPlace(state.from), settings.home, { mode: 'now' });
+    }
   }
   showHome();
 }
 // Full-screen list: 家 / 現在位置 (start) or 回家 (destination), the saved places in 設定 order,
 // and 🔍 其他地點 at the bottom of both lists. Every place is always listed, in the same spot in both lists
 // (回家 fills the first row, like 家 + 現在位置), so they can be found by position. The place already chosen
-// on the other side is greyed out instead of removed.
+// on the other side is greyed out instead of removed. 回家 goes straight to the trip list.
 function showPicker(kind) {
   clearTimers();
   state.screen = 'pick';
@@ -598,16 +602,19 @@ function showPicker(kind) {
     items.push({ v: i, html: `${esc(pl.zh || pl.en)}<span class="en">${esc(pl.zh ? pl.en : '')}</span>` });
   });
   const valueOf = (v) => (typeof v === 'number' ? settings.places[v] : v);
+  // 回家 is never greyed: chosen while the start is 家, it means "home from where I am now"
+  const greyed = (v) => !(!isFrom && v === 'home') && samePlace(valueOf(v), other);
   render(`<button class="back" data-back>← 返回</button>
     <h1>${isFrom ? '從哪裡出發?' : '去哪裡?'}</h1>
     <div class="grid picklist">${items.map((it, k) =>
-      `<button class="place ${it.cls || ''}" data-pick="${k}"${samePlace(valueOf(it.v), other) ? ' disabled' : ''}>${it.html}</button>`).join('')}</div>
+      `<button class="place ${it.cls || ''}" data-pick="${k}"${greyed(it.v) ? ' disabled' : ''}>${it.html}</button>`).join('')}</div>
     <div class="bar"><button class="btn other" data-other>🔍 其他地點<span class="en">Other places</span></button></div>`);
   $app.querySelector('[data-back]').onclick = showHome;
   $app.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => setChoice(kind, valueOf(items[+b.dataset.pick].v)));
   $app.querySelector('[data-other]').onclick = () => showSearchPlace(kind);
 }
 
+const SETTINGS_HOLD_MS = 2000;
 function showHome() {
   clearTimers();
   state.screen = 'home';
@@ -623,10 +630,8 @@ function showHome() {
     <h2>去哪裡?</h2>
     <button class="choice ${state.to ? '' : 'empty'}" data-row="to">${choiceLabel(state.to, '請選擇目的地')}<span class="chev">›</span></button>
     <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
-    <div class="bar">
-      <button class="btn" data-reset-trip>↺ 重新開始</button>
-      <button class="btn" data-settings>⚙️ 設定</button>
-    </div>
+    <div class="bar"><button class="btn" data-reset-trip>↺ 重新開始</button></div>
+    <button class="setlink" data-settings>⚙️ 設定<span>家人用:按住 2 秒</span></button>
   `, true);
   $app.querySelectorAll('[data-row]').forEach((b) => b.onclick = () => showPicker(b.dataset.row));
   $app.querySelector('[data-search-trip]').onclick = () => {
@@ -634,7 +639,17 @@ function showHome() {
     // The list always starts at "leave now"; the time is changed on the list itself
     showTrips(asPlace(state.from), asPlace(state.to), { mode: 'now' }, { oneOff: !!state.to.searched });
   };
-  $app.querySelector('[data-settings]').onclick = showSettings;
+  // 設定 opens only after holding for SETTINGS_HOLD_MS, so a stray tap can't get in
+  const set = $app.querySelector('[data-settings]');
+  let hold = null;
+  const release = () => { clearTimeout(hold); hold = null; set.classList.remove('holding'); };
+  set.onpointerdown = () => {
+    release();
+    set.classList.add('holding');
+    hold = setTimeout(() => { if (state.screen === 'home') showSettings(); }, SETTINGS_HOLD_MS);
+  };
+  set.onpointerup = set.onpointerleave = set.onpointercancel = release;
+  set.oncontextmenu = (e) => e.preventDefault();
   // ↺ 重新開始: back to the clean state (家, no destination); saved places are not touched
   $app.querySelector('[data-reset-trip]').onclick = () => {
     state.from = 'home'; state.to = null;
@@ -1726,20 +1741,24 @@ function remind(j, steps) {
 }
 
 // ---------- Settings ----------
-function showSettings() {
+// deleting: the rows show 「刪除」 instead of the drag handles (a separate mode, so nothing is removed by a slip)
+function showSettings(deleting = false, keepScroll = false) {
   clearTimers();
   state.screen = 'settings';
-  const rows = settings.places.map((p, i) => `<div class="row">
+  const rows = settings.places.map((p, i) => `<div class="row" data-i="${i}">
       <div class="grow">${esc(p.zh || p.en)} <span class="en">${esc(p.en || '')}</span></div>
-      <button data-up="${i}" ${i === 0 ? 'disabled' : ''}>⬆️</button>
-      <button data-del="${i}">🗑️</button></div>`).join('');
+      ${deleting ? `<button class="del" data-del="${i}">刪除</button>`
+        : '<button class="grip" data-grip aria-label="拖動排序">☰</button>'}</div>`).join('');
   render(`<button class="back" data-back>← 返回</button>
     <h1>設定</h1>
     <h2>住址</h2>
     <div class="row"><div class="grow">${esc(settings.home.query)}</div><button data-home>更改</button></div>
     <h2>常去地點</h2>
-    ${rows || '<div class="small">未有地點</div>'}
-    <div class="bar"><button class="btn primary" data-add>➕ 新增地點</button></div>
+    ${deleting ? `<div class="delbar">刪除模式:按「刪除」移除地點</div>
+      <div class="bar"><button class="btn primary" data-done>✓ 完成</button></div>`
+      : `<div class="bar"><button class="btn" data-add>➕ 新增地點</button><button class="btn danger" data-delmode>🗑️ 刪除地點…</button></div>
+      <div class="small">按住 ☰ 上下拖動,可以更改次序</div>`}
+    <div class="places">${rows || '<div class="small">未有地點</div>'}</div>
     ${FEATURE_REMINDER ? `<h2>出門提醒</h2>
     <div class="toggle three">${[5, 10, 15].map((n) =>
       `<button data-before="${n}" class="${settings.remindBefore === n ? 'on' : ''}">提前 ${n} 分鐘</button>`).join('')}</div>` : ''}
@@ -1749,26 +1768,79 @@ function showSettings() {
     <div class="bar"><button class="btn danger" data-reset>還原預設</button></div>
     <div class="version">版本 ${esc(APP_VERSION)} · ${esc(APP_DATE)} ·
       <a href="${esc(CHANGELOG_URL)}" target="_blank" rel="noopener">更新紀錄</a><br>
-      地址資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>`);
-  $app.querySelector('[data-back]').onclick = showHome;
-  $app.querySelector('[data-home]').onclick = () => showAddPlace(true);
-  $app.querySelector('[data-add]').onclick = () => showAddPlace(false);
-  $app.querySelector('[data-testvoice]').onclick = () => speak('你好,下一班火車三分鐘後在二號月台開出。');
+      地址資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>`, keepScroll);
+  const on = (sel, fn) => { const el = $app.querySelector(sel); if (el) el.onclick = fn; };
+  on('[data-back]', showHome);
+  on('[data-home]', () => showAddPlace(true));
+  on('[data-add]', () => showAddPlace(false));
+  on('[data-delmode]', () => showSettings(true, true));
+  on('[data-done]', () => showSettings(false, true));
+  on('[data-testvoice]', () => speak('你好,下一班火車三分鐘後在二號月台開出。'));
   $app.querySelectorAll('[data-before]').forEach((b) => b.onclick = () => {
-    settings.remindBefore = +b.dataset.before; saveSettings(); showSettings();
+    settings.remindBefore = +b.dataset.before; saveSettings(); showSettings(deleting, true);
   });
   $app.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => {
     const p = settings.places[+b.dataset.del];
-    if (confirm(`刪除「${p.zh || p.en}」?`)) { settings.places.splice(+b.dataset.del, 1); saveSettings(); showSettings(); }
+    if (confirm(`刪除「${p.zh || p.en}」?`)) { settings.places.splice(+b.dataset.del, 1); saveSettings(); showSettings(true, true); }
   });
-  $app.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => {
-    const i = +b.dataset.up;
-    [settings.places[i - 1], settings.places[i]] = [settings.places[i], settings.places[i - 1]];
-    saveSettings(); showSettings();
-  });
-  $app.querySelector('[data-reset]').onclick = () => {
+  on('[data-reset]', () => {
     if (confirm('還原所有設定?住址和常去地點都會還原成預設。')) { localStorage.removeItem(STORE_KEY); settings = loadSettings(); showSettings(); }
+  });
+  $app.querySelectorAll('[data-grip]').forEach((g) => { g.onpointerdown = (e) => dragPlace(e, g); });
+}
+// Drag a place by its ☰ handle to a new position. The other rows slide out of the way; near the top or
+// bottom edge of the screen the list scrolls by itself. The handle has touch-action: none, so the page
+// doesn't scroll under the finger.
+function dragPlace(e, grip) {
+  e.preventDefault();
+  const row = grip.closest('.row');
+  const rows = [...$app.querySelectorAll('.places .row')];
+  const from = rows.indexOf(row);
+  // Page positions of every row before anything moves
+  const tops = rows.map((r) => r.getBoundingClientRect().top + window.scrollY);
+  const heights = rows.map((r) => r.offsetHeight);
+  const startY = e.pageY;
+  let to = from, lastClientY = e.clientY, scroller = null;
+  grip.setPointerCapture(e.pointerId);
+  row.classList.add('dragging');
+  const place = (pageY) => {
+    const dy = pageY - startY;
+    row.style.transform = `translateY(${dy}px)`;
+    const mid = tops[from] + heights[from] / 2 + dy;
+    // New position: before every row whose middle the dragged row's middle has passed
+    to = from;
+    rows.forEach((r, k) => {
+      const m = tops[k] + heights[k] / 2;
+      if (k > from && mid > m) to = k;
+      if (k < from && mid < m && to >= from) to = Math.min(to, k);
+    });
+    rows.forEach((r, k) => {
+      if (k === from) return;
+      const shift = k > from && k <= to ? -heights[from] : k < from && k >= to ? heights[from] : 0;
+      r.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
   };
+  const move = (ev) => { lastClientY = ev.clientY; place(ev.pageY); };
+  // Auto-scroll near the edges while the finger is still
+  scroller = setInterval(() => {
+    const step = lastClientY < 90 ? -14 : lastClientY > window.innerHeight - 90 ? 14 : 0;
+    if (!step) return;
+    const before = window.scrollY;
+    window.scrollBy(0, step);
+    if (window.scrollY !== before) place(lastClientY + window.scrollY);
+  }, 16);
+  const end = (ev) => {
+    clearInterval(scroller);
+    grip.onpointermove = grip.onpointerup = grip.onpointercancel = null;
+    if (ev.type === 'pointerup' && to !== from) {
+      const [p] = settings.places.splice(from, 1);
+      settings.places.splice(to, 0, p);
+      saveSettings();
+    }
+    if (state.screen === 'settings') showSettings(false, true);
+  };
+  grip.onpointermove = move;
+  grip.onpointerup = grip.onpointercancel = end;
 }
 
 // 🔍 其他地點: plan a one-off trip to any place without changing the saved buttons.

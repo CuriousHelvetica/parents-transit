@@ -1,6 +1,6 @@
 // Every screen fits the phone: no sideways scrolling at 393 px (iPhone 14 Pro), 375 px and 320 px,
 // and the time bar buttons stay inside the screen.
-const { open, chooseTo, search, noOverflow, STOPS } = require('./helpers');
+const { open, chooseTo, search, noOverflow, openSettings, STOPS } = require('./helpers');
 
 module.exports = async (check) => {
   const t = await open({ api: { notices: [{ subtitle: 'Trackwork at Redfern Station tonight', priority: 'high' }, { subtitle: 'Lift upgrade' }] } });
@@ -16,7 +16,8 @@ module.exports = async (check) => {
     await page.click('[data-row=from]'); await look('start list');
     await page.click('[data-other]'); await look('other place search');
     await page.click('[data-back]'); await page.click('[data-back]');
-    await page.click('[data-settings]'); await look('settings');
+    await openSettings(page); await look('settings');
+    await page.click('[data-delmode]'); await look('settings, delete mode'); await page.click('[data-done]');
     await page.click('[data-back]');
     await search(page); await look('trip list');
     const bar = await page.evaluate(() => [...document.querySelectorAll('.tbar button, .tb-change')].every((b) => b.getBoundingClientRect().right <= innerWidth && b.scrollWidth <= b.clientWidth + 1));

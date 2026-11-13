@@ -33,7 +33,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
   - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps. Without a GPS signal (tunnels) or with location switched off, a yellow warning shows and the count carries on by the timetable, marked 「大約」. At the stop, a 「下一程」 button continues with the next ride. Shows 「✓ 已上車」 once the vehicle leaves; if they caught an earlier or later service on the same line, the stop times follow the real departure, and a yellow 「⚠️ 可能不是原定班次」 note asks them to check the display shows their stop.
 
 **Settings (⚙️ 設定)**
-- Home address, frequent places (add, delete, reorder), Cantonese voice test, restore defaults. (Reminder lead time hidden with ⏰ 提醒我.)
+- Opens after holding ⚙️ 設定 for 2 seconds. Home address, frequent places (add, drag ☰ to reorder, delete in a separate mode), Cantonese voice test, restore defaults. (Reminder lead time hidden with ⏰ 提醒我.)
 - Everything personal is stored only on the phone.
 
 ## History
@@ -42,6 +42,11 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.7.0 — 2026-11-13
+- 🏠 回家 in the 去哪裡 list is always available and goes straight to the trip list. If the start is 家, it switches to 📍 現在位置 (home from where they are now); another chosen start is kept. 🚕 Uber at the bottom has home filled in as the destination.
+- ⚙️ 設定 is now a small line at the bottom of the main screen and opens only after holding it for 2 seconds, so a stray tap can't get in.
+- 設定 → 常去地點: reorder by dragging the ☰ handle (the list scrolls by itself near the screen edges); the ⬆️ buttons are gone. Deleting is a separate mode behind 「🗑️ 刪除地點…」, with red 「刪除」 buttons and 「✓ 完成」.
 
 ### v1.6.0 — 2026-11-13
 Departure times instead of "leave home" times:

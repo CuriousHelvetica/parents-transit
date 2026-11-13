@@ -214,3 +214,15 @@ body.alert-off .nogps { background: rgba(255,255,255,.2); }
    the place already chosen on the other side is greyed out in its usual spot */
 .place.wide { grid-column: 1 / -1; }
 .place:disabled { opacity: .3; cursor: default; }
+/* 設定 entry: small, at the bottom, opens after a 2-second hold (the bar fills while holding) */
+.setlink { position: relative; display: block; margin: 26px auto 0; padding: 10px 18px; background: none; color: #555; font-size: 18px; text-align: center; border-radius: 12px; overflow: hidden; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.setlink span { display: block; font-size: 16px; }
+.setlink::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--beige); z-index: -1; }
+.setlink.holding::before { width: 100%; transition: width 2s linear; }
+/* 設定: drag handle to reorder, separate delete mode */
+.row .grip { touch-action: none; padding: 10px 16px; font-size: 22px; color: var(--primary); cursor: grab; -webkit-user-select: none; user-select: none; }
+.row { background: var(--bg); }
+.row.dragging { position: relative; z-index: 5; background: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.25); border-radius: 10px; }
+.places .row:not(.dragging) { transition: transform .12s; }
+.row .del { background: #b3261e; color: #fff; font-weight: 700; font-size: 19px; padding: 8px 14px; }
+.delbar { background: #fdecea; border-left: 6px solid #b3261e; border-radius: 8px; padding: 10px 12px; margin: 10px 0; font-size: 19px; font-weight: 700; }

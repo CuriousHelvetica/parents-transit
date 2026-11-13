@@ -68,7 +68,7 @@ Edit [`config.js`](config.js) in this repository and replace `https://REPLACE-ME
 
 ### Set their real home address
 The default "home" is Rhodes Station. For the right walking time and stops, set their real address:
-1. In the app tap **⚙️ 設定** → next to 住址 tap **更改**.
+1. In the app, **hold ⚙️ 設定 for 2 seconds** (bottom of the main screen; a normal tap does nothing, so your parents can't open it by accident) → next to 住址 tap **更改**.
 2. Type their address in English (e.g. `1 Walker St Rhodes`), tap **🔍 搜尋**, and pick the right result.
 
 Their home address is stored **only on their phone**, not on GitHub.
@@ -116,7 +116,7 @@ A button at the bottom of the trip list (any time, also for planned trips, as a 
 - Worth doing one practice booking together, including confirming the pickup pin at home.
 
 ### Edit places
-In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or move them up (⬆️). When adding, you can type a Chinese name for the button.
+In **⚙️ 設定** (hold for 2 seconds) you can add places (➕ 新增地點), reorder them by dragging the **☰** handle, or delete them: **🗑️ 刪除地點…** switches to delete mode, **✓ 完成** leaves it. When adding, you can type a Chinese name for the button.
 
 ---
 
@@ -125,7 +125,7 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
 1. Open **爸媽出行**.
 2. Answer two questions:
    - **從哪裡出發?** (where from) — 🏠 家 is already selected. Tap it to choose 📍 現在位置 (where I am now), a station, or 🔍 其他地點.
-   - **去哪裡?** (where to) — tap to choose 🏠 回家, a station, or 🔍 其他地點.
+   - **去哪裡?** (where to) — tap to choose a station or 🔍 其他地點. **🏠 回家** at the top goes straight to the trips home from where they are now (📍 現在位置), with 🚕 Uber for home at the bottom.
 3. Tap **🔍 搜尋路線** (search routes). The list shows trips leaving **now**, earliest first.
 4. To see other times, stay on the list:
    - **◀ 早一點 / 遲一點 ▶** (earlier / later) move 30 minutes each tap. **⏱️ 現在** jumps back to now.

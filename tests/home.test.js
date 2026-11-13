@@ -1,5 +1,5 @@
 // Main screen, the two pickers, 🔍 其他地點, ⚙️ 設定 and the live 📍 你在 box.
-const { open, chooseTo, chooseFrom, STOPS } = require('./helpers');
+const { open, chooseTo, chooseFrom, openSettings, dragRow, STOPS } = require('./helpers');
 
 // How many default places names.js has (so adding a station doesn't break the tests)
 const N = (require('fs').readFileSync(require('path').join(__dirname, '..', 'names.js'), 'utf8').match(/const DEFAULT_ORDER = \[([\s\S]*?)\];/)[1].match(/'[^']+'/g) || []).length;
@@ -36,7 +36,7 @@ module.exports = async (check) => {
   const spot = (label) => page.locator(`.picklist button:has-text("${label}")`).first().boundingBox();
   await page.click('[data-row=to]');
   const toHome = page.locator('.picklist button').first();
-  check((await toHome.innerText()).startsWith('🏠 回家') && await toHome.isDisabled(), 'start 家: 回家 still first in the destination list, greyed');
+  check((await toHome.innerText()).startsWith('🏠 回家') && !(await toHome.isDisabled()), 'start 家: 回家 first in the destination list, and available');
   const toSpots = [await spot('寶活站'), await spot('中央站'), await spot('賓士鎮站')];
   check(await page.locator('.picklist button').count() === N + 1, `destination list has 回家 + all ${N} places`);
   await page.click('[data-back]');
@@ -59,6 +59,24 @@ module.exports = async (check) => {
     && await page.locator('.picklist button:has-text("中央站")').isDisabled(), 'start 中央站: 回家 available, 中央站 greyed');
   check(toList.length === N + 1, 'destination list still has every place');
   await page.click('[data-back]');
+  // 🏠 回家 from 家: straight to the trip list, from where they are now, with Uber filled in for home
+  await page.click('[data-reset-trip]');
+  await page.click('[data-row=to]');
+  await page.click('.picklist button:has-text("回家")');
+  await page.waitForSelector('.card[data-j]', { timeout: 10000 });
+  check((await page.locator('h1.route').innerText()).replace(/\s+/g, ' ') === '📍 現在位置 → 家' && /現在出發/.test(await page.locator('.whenx').innerText()),
+    '回家 (start was 家): straight to the trip list, 「📍 現在位置 → 家」, leaving now');
+  const uber = new URL(await page.locator('a.btn.uber').getAttribute('href')).searchParams;
+  check(uber.get('pickup') === 'my_location' && uber.get('dropoff[latitude]') && uber.get('dropoff[formatted_address]').includes(await page.evaluate(() => settings.home.query)),
+    `Uber at the bottom: pickup = where they are, drop-off = home (${uber.get('dropoff[formatted_address]')})`);
+  await page.click('[data-back]');
+  check((await page.locator('[data-row=from]').innerText()).includes('現在位置') && (await page.locator('[data-row=to]').innerText()).includes('家'),
+    '← 返回: main screen shows 現在位置 → 家');
+  await chooseFrom(page, '寶活站');
+  await page.click('[data-row=to]'); await page.click('.picklist button:has-text("回家")');
+  await page.waitForSelector('.card[data-j]', { timeout: 10000 });
+  check((await page.locator('h1.route').innerText()).replace(/\s+/g, ' ') === '寶活站 → 家', '回家 with another start chosen: keeps that start (寶活站 → 家)');
+  await page.click('[data-back]');
   await page.click('[data-reset-trip]');
   check((await page.locator('[data-row=from]').innerText()).includes('家') && await page.locator('[data-row=to].empty').count() === 1,
     '↺ 重新開始: back to 家 and no destination');
@@ -77,14 +95,30 @@ module.exports = async (check) => {
   check(saved === N, 'a searched place is not added to the saved places by itself');
 
   // ---- ⚙️ 設定
-  await page.click('[data-settings]');
+  await page.click('[data-settings]'); await page.waitForTimeout(300);
+  check(await page.locator('h1:has-text("設定")').count() === 0, '設定: a normal tap does nothing');
+  await page.locator('[data-settings]').dispatchEvent('pointerdown'); await page.waitForTimeout(1000);
+  await page.locator('[data-settings]').dispatchEvent('pointerup'); await page.waitForTimeout(1300);
+  check(await page.locator('h1:has-text("設定")').count() === 0, '設定: letting go after 1 second does nothing');
+  await openSettings(page);
+  check(await page.locator('h1:has-text("設定")').count() === 1, '設定: opens after holding 2 seconds');
   const version = (await page.locator('.version').innerText());
   const expected = require('fs').readFileSync(require('path').join(__dirname, '..', 'version.js'), 'utf8').match(/APP_VERSION = '([^']+)'/)[1];
   check(version.includes(expected), `settings show the version (${expected})`);
   const firstTwo = () => page.evaluate(() => settings.places.slice(0, 2).map((p) => p.en).join(','));
-  await page.click('[data-up="1"]');
-  check(await firstTwo() === 'Burwood,Hurstville', 'move up: Burwood now first');
+  check(await page.locator('[data-del]').count() === 0 && await page.locator('[data-grip]').count() === N, 'rows have a ☰ handle only, no delete button');
+  const order = (n) => page.evaluate((n) => settings.places.slice(0, n).map((p) => p.en).join(','), n);
+  await dragRow(page, 0, 3);
+  check(await order(5) === 'Burwood,Blacktown,Riverwood,Hurstville,Flemington', `drag Hurstville down three rows (${await order(5)})`);
+  await dragRow(page, 3, 0);
+  check(await order(4) === 'Hurstville,Burwood,Blacktown,Riverwood', 'drag it back to the top');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem(STORE_KEY)).places[0].en) === 'Hurstville', 'new order saved on the phone');
+  await dragRow(page, 1, 0);
+  check(await firstTwo() === 'Burwood,Hurstville', 'drag Burwood above Hurstville');
+  await page.click('[data-delmode]');
+  check(await page.locator('[data-grip]').count() === 0 && (await page.locator('.delbar').innerText()).includes('刪除模式'), 'delete mode: red 刪除 buttons, no handles');
   await page.click('[data-del="0"]');
+  await page.click('[data-done]');
   check(await page.evaluate(() => settings.places.length) === N - 1 && await firstTwo() === 'Hurstville,Blacktown', 'delete: Burwood removed');
   await page.click('[data-add]'); await page.fill('#q', 'Westfield Burwood'); await page.click('[data-search]');
   await page.waitForSelector('.result'); await page.click('.result');

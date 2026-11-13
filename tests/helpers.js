@@ -92,7 +92,7 @@ function journey(ride, opts = {}) {
   if (walk) {
     legs.push({ duration: 180, transportation: { product: { class: 100 } },
       origin: { name: STOPS[4][0], departureTimePlanned: iso(end) },
-      destination: { name: 'Burwood', arrivalTimePlanned: iso(end + 3 * MIN) } });
+      destination: { name: 'Burwood', coord: STOPS[4][1], arrivalTimePlanned: iso(end + 3 * MIN) } });
   }
   return { legs };
 }
@@ -180,6 +180,21 @@ async function open(opts = {}) {
 async function chooseTo(page, label) { await page.click('[data-row=to]'); await page.click(`.picklist button:has-text("${label}")`); }
 async function chooseFrom(page, label) { await page.click('[data-row=from]'); await page.click(`.picklist button:has-text("${label}")`); }
 async function search(page) { await page.click('[data-search-trip]'); await page.waitForSelector('.card[data-j]', { timeout: 10000 }); }
+// 設定 opens after a 2-second hold
+async function openSettings(page) {
+  await page.locator('[data-settings]').dispatchEvent('pointerdown');
+  await page.waitForSelector('h1:has-text("設定")', { timeout: 5000 });
+}
+// Drag the ☰ handle of row `from` to the middle of row `to` (settings list)
+async function dragRow(page, from, to) {
+  const g = await page.locator('.places .row').nth(from).locator('[data-grip]').boundingBox();
+  const t = await page.locator('.places .row').nth(to).boundingBox();
+  const x = g.x + g.width / 2, y0 = g.y + g.height / 2, y1 = t.y + t.height / 2 + (to > from ? 6 : -6);
+  await page.mouse.move(x, y0); await page.mouse.down();
+  for (let k = 1; k <= 8; k++) await page.mouse.move(x, y0 + ((y1 - y0) * k) / 8);
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+}
 const noOverflow = (page) => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
-module.exports = { open, makeChecker, journey, tripApi, STOPS, MIN, sydParts, sydMs, sydLabel, chooseTo, chooseFrom, search, noOverflow, WORKER_URL };
+module.exports = { open, makeChecker, journey, tripApi, STOPS, MIN, sydParts, sydMs, sydLabel, chooseTo, chooseFrom, search, noOverflow, openSettings, dragRow, WORKER_URL };
