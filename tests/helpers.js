@@ -179,7 +179,7 @@ async function open(opts = {}) {
 // Common steps
 async function chooseTo(page, label) { await page.click('[data-row=to]'); await page.click(`.picklist button:has-text("${label}")`); }
 async function chooseFrom(page, label) { await page.click('[data-row=from]'); await page.click(`.picklist button:has-text("${label}")`); }
-async function search(page) { await page.click('[data-search-trip]'); await page.waitForSelector('[data-j]', { timeout: 10000 }); }
+async function search(page) { await page.click('[data-search-trip]'); await page.waitForSelector('.card[data-j]', { timeout: 10000 }); }
 const noOverflow = (page) => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
 module.exports = { open, makeChecker, journey, tripApi, STOPS, MIN, sydParts, sydMs, sydLabel, chooseTo, chooseFrom, search, noOverflow, WORKER_URL };

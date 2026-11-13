@@ -29,12 +29,12 @@ module.exports = async (check) => {
       check(bottom <= 759, `改時間及日期: ✓ 確定 visible without scrolling on an iPhone 14 Pro (bottom at ${Math.round(bottom)} of 759)`);
       await page.setViewportSize({ width, height: 800 });
     }
-    await page.click('[data-cancel]'); await page.waitForSelector('[data-j]');
-    await page.click('.card:not(.departed)'); await page.waitForSelector('.step');
+    await page.click('[data-cancel]'); await page.waitForSelector('.card[data-j]');
+    await page.click('.card[data-j]'); await page.waitForSelector('.step');
     await page.click('details.stops summary'); await page.click('details.notices summary'); await look('trip details');
     await t.ctx.setGeolocation({ latitude: STOPS[0][1][0], longitude: STOPS[0][1][1], accuracy: 10 });
     await page.click('[data-track]'); await look('stop countdown');
-    await page.click('[data-back]'); await page.click('[data-back]'); await page.waitForSelector('[data-j]');
+    await page.click('[data-back]'); await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
     check(!bad.length, `${width} px: every screen fits${bad.length ? ` (too wide: ${bad.join(', ')})` : ''}`);
   }
   check(t.errors.length === 0, `no page errors (${t.errors.join(' | ')})`);

@@ -12,14 +12,14 @@ module.exports = async (check) => {
   const { page } = t;
   await chooseTo(page, '寶活站');
   await search(page);
-  check((await page.locator('.card:not(.departed)').first().innerText()).includes('有重要服務通知'), 'trip card warns about the important notice');
-  await page.click('.card:not(.departed)');
+  check((await page.locator('.card[data-j]').first().innerText()).includes('有重要服務通知'), 'trip card warns about the important notice');
+  await page.click('.card[data-j]');
   await page.waitForSelector('.step');
   await page.waitForTimeout(800);   // translations come in
 
   const steps = await page.locator('.step').allInnerTexts();
   const flat = steps.map((s) => s.replace(/\s+/g, ' '));
-  check(flat[0].includes('步行 15 分鐘') && flat[0].includes('羅德站 Rhodes'), `walk step: ${flat[0].slice(0, 40)}`);
+  check(flat[0].includes('步行約 14 分鐘') && flat[0].includes('羅德站 Rhodes'), `walk step: ${flat[0].slice(0, 40)}`);
   check(/乘搭 T9 火車/.test(flat[1]) && flat[1].includes('2號月台') && flat[1].includes('往 康士比 Hornsby via Strathfield 方向') && flat[1].includes('共 4 個站'),
     'board step: line, platform, direction (Chinese + English), number of stops');
   check(flat[2].includes('寶活站 Burwood') && flat[2].includes('下車') && steps.length === 5, 'get-off step, walk, 🏁 arrive');
@@ -53,7 +53,7 @@ module.exports = async (check) => {
   check((await page.locator('[data-say]').innerText()).includes('朗讀') && await page.evaluate(() => window.__cancelled > 0), 'tap again: stops');
 
   await page.click('[data-back]');
-  check(await page.locator('[data-j]').count() > 0, '← 返回: back to the list');
+  check(await page.locator('.card[data-j]').count() > 0, '← 返回: back to the list');
   check(t.errors.length === 0, `no page errors (${t.errors.join(' | ')})`);
   await t.close();
 };

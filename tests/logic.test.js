@@ -50,7 +50,7 @@ module.exports = async (check) => {
   const n = await ev(() => noticesOf({ infos: [
     { subtitle: 'Trackwork tonight', priority: 'high' }, { subtitle: 'Lift upgrade', priority: 'normal' },
     { subtitle: 'Lift upgrade', priority: 'normal' }, { subtitle: 'A', priority: 'low' }, { subtitle: 'B', priority: 'veryHigh' }] }));
-  check(n.length === 3 && n[0].severe && !n[1].severe && n.map((x) => x.en).join('|') === 'Trackwork tonight|Lift upgrade|A',
+  check(n.length === 3 && n[0].severe && n.map((x) => x.en).join('|') === 'Trackwork tonight|B|Lift upgrade' && n[1].severe && !n[2].severe,
     `noticesOf: ${n.map((x) => `${x.en}${x.severe ? '(severe)' : ''}`).join(', ')}`);
 
   // Station names kept out of the AI translation, then put back as 中文 + English
@@ -71,15 +71,40 @@ module.exports = async (check) => {
   });
   check(keys[0] !== keys[1] && keys[0] === keys[2], 'tripKey: different arrival -> different trip, same trip -> same key');
 
-  // Slower walk from home: 5 minutes earlier start, nothing else moves
-  const walk = await ev(() => {
-    const j = { legs: [{ duration: 600, origin: { departureTimePlanned: '2026-11-06T08:00:00.000Z' }, destination: {} },
-      { transportation: { product: { class: 1 } }, origin: { departureTimePlanned: '2026-11-06T08:10:00.000Z' }, destination: {} }] };
-    const s = slowerHomeWalk(j);
-    return [s.legs[0].origin.departureTimePlanned, s.legs[0].duration, s.legs[1].origin.departureTimePlanned, j.legs[0].origin.departureTimePlanned];
-  });
-  check(walk[0] === '2026-11-06T07:55:00.000Z' && walk[1] === 900 && walk[2] === '2026-11-06T08:10:00.000Z' && walk[3] === '2026-11-06T08:00:00.000Z',
-    'slowerHomeWalk: walk starts 5 min earlier, train unchanged, original untouched');
+  // An important notice is kept even when Transport for NSW lists it last
+  const n4 = await ev(() => noticesOf({ infos: [{ subtitle: 'A' }, { subtitle: 'B' }, { subtitle: 'C' }, { subtitle: 'Line closed tonight', priority: 'veryHigh' }] }).map((x) => x.en));
+  check(n4[0] === 'Line closed tonight' && n4.length === 3, `noticesOf: important notice listed 4th is kept, first (${n4.join(', ')})`);
+
+  // Walking at their pace: +40%, rounded up; times of trains never change
+  const slow = await ev(() => [slowWalkMin(600), slowWalkMin(240), slowWalkMin(180), slowWalkMin(0)]);
+  check(JSON.stringify(slow) === '[14,6,5,1]', `slowWalkMin: 10 → 14, 4 → 6, 3 → 5 minutes (${slow.join(', ')})`);
+
+  // A change with 5 minutes where a brisk adult needs 4 (so they need about 6): flagged; with 7 minutes: fine
+  const tight = await ev((MIN) => {
+    const t = 1e12; const iso = (m) => new Date(t + m * MIN).toISOString();
+    const trip = (gap) => ({ legs: [
+      { transportation: { disassembledName: 'T9', product: { class: 1 } }, origin: { name: 'Rhodes Station', departureTimePlanned: iso(0) }, destination: { name: 'Strathfield Station, Platform 4', arrivalTimePlanned: iso(10) } },
+      { duration: 240, transportation: { product: { class: 100 } }, origin: { name: 'Strathfield Station, Platform 4', departureTimePlanned: iso(10) }, destination: { name: 'Strathfield Station, Platform 6', arrivalTimePlanned: iso(14) } },
+      { transportation: { disassembledName: 'T1', product: { class: 1 } }, origin: { name: 'Strathfield Station, Platform 6', departureTimePlanned: iso(10 + gap) }, destination: { name: 'Burwood Station', arrivalTimePlanned: iso(20 + gap) } }] });
+    const a = tightChanges(trip(5)), b = tightChanges(trip(7));
+    const step = journeySteps(trip(5)).find((s) => /步行/.test(s.what));
+    return { a: a.map((x) => [x.gap, x.walk]), b: b.length, detail: step.detail, card: journeyCard(trip(5), 0).includes('轉車時間緊迫'), cardOk: journeyCard(trip(7), 0).includes('轉車時間緊迫') };
+  }, MIN);
+  check(JSON.stringify(tight.a) === '[[5,6]]' && tight.b === 0, 'tightChanges: 5 minutes to change, 6 needed → flagged; 7 minutes → fine');
+  check(tight.detail.includes('轉車時間只有 5 分鐘,步行約 6 分鐘,可能趕不及') && tight.card && !tight.cardOk, 'tight change: warning on the walk step and on the card');
+
+  // 現在: a trip stays listed until its train leaves, even when the walk to it should have started
+  const onWay = await ev((MIN) => {
+    const now = Date.now(); const iso = (m) => new Date(now + m * MIN).toISOString();
+    const j = { legs: [{ duration: 600, transportation: { product: { class: 100 } }, origin: { name: 'Home', departureTimePlanned: iso(-3) }, destination: { name: 'Rhodes Station', arrivalTimePlanned: iso(7) } },
+      { transportation: { disassembledName: 'T9', product: { class: 1 } }, origin: { name: 'Rhodes Station', departureTimePlanned: iso(8) }, destination: { name: 'Burwood Station', arrivalTimePlanned: iso(28) } }] };
+    const pool = newTripPool(); pool.trips.set(tripKey(j), j); pool.spans.dep.push([now - 30 * MIN, now + 60 * MIN, now]);
+    const card = journeyCard(j, 0);
+    return { n: tripsFor(pool, { mode: 'now' }).length, gone: departedFor(pool).length, head: /開車 <span class="in soon">· 8 分鐘後/.test(card),
+      walk: card.includes('約 14 分鐘'), hint: card.includes('步行需時較長,可能趕不及'), total: card.includes('全程 20 分鐘') };
+  }, MIN);
+  check(onWay.n === 1 && onWay.gone === 0, 'on the way to the station (train in 8 min): the trip is still listed');
+  check(onWay.head && onWay.walk && onWay.hint && onWay.total, 'its card: 「開車 · 8 分鐘後」, walk about 14 min, "may not make it" hint, 全程 from train to arrival');
 
   // Coverage bookkeeping for ◀ ▶ (stretches within a minute of each other join up)
   const ku = await ev((MIN) => {

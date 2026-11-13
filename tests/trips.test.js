@@ -16,12 +16,20 @@ module.exports = async (check) => {
   check(/現在出發/.test(await whenx(page)), 'opens at 「現在出發」');
   check(await page.locator('[data-step="-1"]').isDisabled() && await page.locator('.tb-mid.on').count() === 1, '◀ 早一點 greyed, ⏱️ 現在 highlighted');
   check(await page.locator('[data-sort]').count() === 0, 'no sort buttons');
-  const times = await page.$$eval('.card:not(.departed) .times', (els) => els.map((e) => e.innerText.split('→')[0]));
+  const times = await page.$$eval('.card[data-j] .leave', (els) => els.map((e) => e.innerText));
   const mins = times.map(minutesOf);
   check(mins.length >= 6 && mins.every((m, i) => i === 0 || m >= mins[i - 1] || m < 120), `upcoming trips in time order (${times.length})`);
-  await page.click('.card:not(.departed)');
-  check((await page.locator('.step .what').first().innerText()).includes('步行 15 分鐘'), 'from 家: 10-minute walk shown as 15 (slower walk)');
-  await page.click('[data-back]'); await page.waitForSelector('[data-j]');
+  const cards = await page.$$eval('.card[data-j]', (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ')));
+  check(cards.every((c) => /開車 · (現在|\d+ 分鐘後|\d+ 小時 \d+ 分鐘後)/.test(c) && !/出門/.test(c)), `card headline: when the train leaves (${cards[0].slice(0, 22)})`);
+  check(cards.every((c) => c.includes('步行到 羅德站 Rhodes 約 14 分鐘') && c.includes('全程 23 分鐘')), 'card: walk line at their pace, 全程 from train to arrival');
+  const minsTo = (c) => (/· 現在/.test(c) ? 0 : +((c.match(/· (\d+) 分鐘後/) || [0, 99])[1]));
+  const near = cards.filter((c) => minsTo(c) <= 12), far = cards.filter((c) => minsTo(c) >= 16);
+  check(near.every((c) => c.includes('可能趕不及')) && far.length > 0 && far.every((c) => !c.includes('可能趕不及')),
+    `walk longer than the time left: hint on ${near.length} near trip(s), none on ${far.length} later ones`);
+  check(await page.locator('.sub:has-text("更新時間")').count() === 0 && await page.locator('.stale').count() === 0, 'no "updated at" line and no warning while all is well');
+  await page.click('.card[data-j]');
+  check((await page.locator('.step .what').first().innerText()).includes('步行約 14 分鐘'), '10-minute walk shown as about 14 (their pace)');
+  await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
   await page.waitForTimeout(1500);   // read-ahead
 
   // ▶ once: rounded, instant
@@ -31,9 +39,9 @@ module.exports = async (check) => {
   const label = `${+exp.hour % 12 || 12}:${exp.minute}`;
   await page.click('[data-step="1"]'); await page.waitForTimeout(100);
   check((await whenx(page)).includes(label), `▶: ${await whenx(page)} (expected ${label})`);
-  check(await page.locator('[data-j]').count() > 0 && await loading(page) === 0, '▶: trips at once, from memory');
+  check(await page.locator('.card[data-j]').count() > 0 && await loading(page) === 0, '▶: trips at once, from memory');
   check(!(await page.locator('[data-step="-1"]').isDisabled()) && await page.locator('.tb-mid.on').count() === 0, '▶: 早一點 active, 現在 not highlighted');
-  const first = minutesOf(await page.locator('.card:not(.departed) .times').first().innerText());
+  const first = minutesOf(await page.locator('.card[data-j] .leave').first().innerText()) - 10;   // leaves home 10 min before the train
   const chosen = +exp.hour * 60 + +exp.minute;
   check(first >= chosen - 5, 'first trip shown leaves at (or just before) the chosen time');
   await page.click('[data-step="1"]'); await page.click('[data-step="1"]'); await page.click('[data-step="1"]');
@@ -49,27 +57,27 @@ module.exports = async (check) => {
   const keep = await whenx(page);
   await page.click('[data-change]');
   check(await page.locator('[data-arrive="0"].on').count() === 1, 'plan page: 出發 selected by default');
-  await page.click('[data-cancel]'); await page.waitForSelector('[data-j]');
+  await page.click('[data-cancel]'); await page.waitForSelector('.card[data-j]');
   check(await whenx(page) === keep, '✕ 取消: list keeps its time');
   await page.click('[data-change]');
   await page.click('[data-day]:nth-child(2)'); await page.click('[data-arrive="1"]');
   await page.selectOption('[data-hour]', '9'); await page.selectOption('[data-min]', '0');
   check((await page.locator('#whenSummary').innerText()).includes('早上 9:00 前到達'), 'plan page summary updates');
-  await page.click('[data-confirm]'); await page.waitForSelector('[data-j]');
+  await page.click('[data-confirm]'); await page.waitForSelector('.card[data-j]');
   check(/明天 早上 9:00 前到達/.test(await whenx(page)), `✓ 確定: ${await whenx(page)}`);
-  const arr = await page.$$eval('[data-j] .times', (els) => els.map((e) => e.innerText.split('→')[1]));
+  const arr = await page.$$eval('.card[data-j] .times', (els) => els.map((e) => e.innerText));
   check(arr.length > 0 && arr.every((x) => minutesOf(x) <= 9 * 60 && minutesOf(x) >= 8 * 60), `arrive-by: only trips arriving 8:00–9:00 (${arr.map((x) => x.trim()).join(', ')})`);
   check(minutesOf(arr[arr.length - 1]) >= 9 * 60 - 15, 'arrive-by: the one arriving just before 9:00 is in the list (last)');
   check(minutesOf(arr[0]) <= minutesOf(arr[arr.length - 1]), 'arrive-by: earliest first');
   await page.waitForTimeout(1500);
   await page.click('[data-step="1"]'); await page.waitForTimeout(100);
   check(/明天 早上 9:30 前到達/.test(await whenx(page)) && await loading(page) === 0, '▶ on an arrive-by plan moves the arrival time, instantly');
-  check(await page.locator('.card.departed').count() === 0, 'no 「已開出」 trips on a planned time');
+  check(await page.locator('.gone-row').count() === 0, 'no 「已開出」 trips on a planned time');
   await page.waitForTimeout(1000);
   const wb = await whenx(page);
   await page.click('[data-j="0"]'); await page.waitForSelector('.step');
   await page.click('[data-back]'); await page.waitForTimeout(150);
-  check(await whenx(page) === wb && await page.locator('[data-j]').count() > 0, 'back from trip details: same time, trips at once');
+  check(await whenx(page) === wb && await page.locator('.card[data-j]').count() > 0, 'back from trip details: same time, trips at once');
 
   // Offline on a time not in memory, then 重試
   t.api.offline = true;
@@ -78,15 +86,15 @@ module.exports = async (check) => {
   check(await page.locator('.err').count() === 1 && await page.locator('.tbar').count() === 1, 'offline: error with 重試, time bar still usable');
   t.api.offline = false;
   await page.click('[data-retry]');
-  await page.waitForSelector('[data-j]', { timeout: 5000 }).catch(() => {});
-  check(await page.locator('[data-j]').count() > 0, '重試: trips shown');
+  await page.waitForSelector('.card[data-j]', { timeout: 5000 }).catch(() => {});
+  check(await page.locator('.card[data-j]').count() > 0, '重試: trips shown');
 
   // Live buttons: only from 30 minutes before departure
-  await page.click('[data-now]'); await page.waitForSelector('.card:not(.departed)');
+  await page.click('[data-now]'); await page.waitForSelector('.card[data-j]');
   check(await page.locator('a.btn.uber').count() === 1, '現在: Uber button active');
-  await page.click('.card:not(.departed)'); await page.waitForSelector('.step');
+  await page.click('.card[data-j]'); await page.waitForSelector('.step');
   check(await page.locator('a.maplink').count() > 0 && await page.locator('[data-track]:not([disabled])').count() === 1, 'trip leaving soon: 地圖指路 and 還有幾個站 active');
-  await page.click('[data-back]'); await page.waitForSelector('[data-j]');
+  await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
   for (let k = 0; k < 4; k++) await page.click('[data-step="1"]');
   await page.waitForTimeout(1500);
   check(await page.locator('a.btn.uber').count() === 1 && await page.locator('.btn.uber.off').count() === 0, '2 hours ahead: Uber still available (price guide)');
@@ -102,22 +110,24 @@ module.exports = async (check) => {
   await chooseFrom(page, '哥頓站'); await chooseTo(page, '雲耶站');
   await search(page);
   const shownAt = Date.now();
-  await page.waitForSelector('.card.departed', { timeout: 10000 }).catch(() => {});
+  await page.waitForSelector('.gone-row', { state: 'attached', timeout: 10000 }).catch(() => {});
   const after = (Date.now() - shownAt) / 1000;
   check(after < 2.5, `「已開出」 trips appear one search after the list (${after.toFixed(1)} s with a 1.5 s network)`);
-  const dep = await page.$$eval('.card.departed .leave', (els) => els.map((e) => e.innerText));
+  const dep = await page.$$eval('.gone-row .leave', (els) => els.map((e) => e.textContent));
   const agos = dep.map((x) => +((x.match(/(\d+) 分鐘/) || [0, 0])[1]));
-  check(dep.length >= 1 && dep.length <= 3 && dep.every((x) => /火車(已開出|剛開出)/.test(x)) && agos.every((a) => a <= 20),
+  check(dep.length >= 1 && dep.length <= 3 && dep.every((x) => /T9・.* 開出/.test(x)) && agos.every((a) => a <= 20),
     `at the top: ${dep.join(', ')}`);
   check(await page.locator('[data-j="0"].departed').count() === 1, 'they come first');
+  check(await page.locator('.gone-row').first().isHidden() && (await page.locator('details.gone summary').innerText()).includes(`剛開出的班次 (${dep.length})`), 'folded under one line: 「剛開出的班次 (n) — 如已上車按此」');
+  await page.click('details.gone summary');
   await page.click('[data-j="0"]'); await page.waitForSelector('.step');
   check(/已開出|剛開出/.test(await page.locator('.leave').first().innerText()) && await page.locator('[data-track]:not([disabled])').count() === 1,
     'details: 「已開出」, 還有幾個站 available');
-  await page.click('[data-back]'); await page.waitForSelector('[data-j]');
+  await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
   await page.click('[data-step="1"]'); await page.waitForTimeout(100);
-  check(await page.locator('.card.departed').count() === 0, '▶: no 「已開出」 trips');
+  check(await page.locator('.gone-row').count() === 0, '▶: no 「已開出」 trips');
   await page.click('[data-now]'); await page.waitForTimeout(100);
-  check(await page.locator('.card.departed').count() === dep.length, '⏱️ 現在: they are back');
+  check(await page.locator('.gone-row').count() === dep.length, '⏱️ 現在: they are back');
   await t.close();
 
   // ---------- quick tapping on a busy line with a slow network ----------
@@ -140,7 +150,7 @@ module.exports = async (check) => {
   t = await open({ api: { walk: false, alt: 12 } });
   page = t.page;
   await chooseFrom(page, '寶活站'); await chooseTo(page, '中央站'); await search(page);
-  const firstTimes = await page.$$eval('.card:not(.departed) .times', (els) => els.map((e) => e.innerText.split('→')[0].trim()));
+  const firstTimes = await page.$$eval('.card[data-j] .leave', (els) => els.map((e) => e.innerText.split('開車')[0].trim()));
   check(firstTimes[0] === firstTimes[1], `two trips with the same first train both shown (${firstTimes.slice(0, 2).join(' / ')})`);
   await t.close();
 
@@ -151,8 +161,8 @@ module.exports = async (check) => {
   await page.click('[data-change]');
   await page.click('[data-day]:nth-child(2)'); await page.click('[data-arrive="1"]');
   await page.selectOption('[data-hour]', '12'); await page.selectOption('[data-min]', '0');
-  await page.click('[data-confirm]'); await page.waitForSelector('[data-j]');
-  const quiet = await page.$$eval('[data-j] .times', (els) => els.map((e) => e.innerText.split('→')[1].trim()));
+  await page.click('[data-confirm]'); await page.waitForSelector('.card[data-j]');
+  const quiet = await page.$$eval('.card[data-j] .times', (els) => els.map((e) => e.innerText.trim()));
   check(quiet.length >= 1 && quiet.every((x) => minutesOf(x) <= 12 * 60), `quiet line: a trip arriving by 12:00 is shown (${quiet.join(', ')})`);
   await t.close();
 
@@ -189,11 +199,11 @@ module.exports = async (check) => {
   t = await open({ clock: start, api: { walk: false, every: 30 } });
   page = t.page;
   await chooseTo(page, '寶活站'); await search(page);
-  await page.waitForSelector('.card.departed', { timeout: 5000 }).catch(() => {});
+  await page.waitForSelector('.gone-row', { state: 'attached', timeout: 5000 }).catch(() => {});
   await page.waitForTimeout(500);
   await page.evaluate(() => { document.querySelector('[data-j]').__same = 1; });
   const card0 = () => page.evaluate(() => { const c = document.querySelector('[data-j]');
-    return { same: c.__same === 1, leave: c.querySelector('.leave').innerText }; });
+    return { same: c.__same === 1, leave: c.querySelector('.leave').textContent }; });
   const before = await card0();
   await page.clock.runFor(15000);
   const changed = await card0();
@@ -213,6 +223,34 @@ module.exports = async (check) => {
   });
   await page.waitForTimeout(1000);
   check(t.api.calls.length > calls, 'back from another app: live times refreshed at once');
+  // Live times can't be refreshed: a clear warning instead of old times looking current
+  t.api.offline = true;
+  await page.clock.runFor(125000); await page.waitForTimeout(800);   // two refresh rounds
+  check(await page.locator('.stale').count() === 1 && (await page.locator('.stale').innerText()).includes('未能更新')
+    && await page.locator('.card[data-j]').count() > 0, 'refresh fails: 「⚠️ 未能更新,以下時間可能不準」 above the (old) trips');
+  t.api.offline = false;
+  await page.clock.runFor(125000); await page.waitForTimeout(800);
+  check(await page.locator('.stale').count() === 0, 'refresh works again: warning gone');
+
+  // A trip's details page picks up a delay announced after it was opened, and keeps open folds open
+  await page.click('.card[data-j]'); await page.waitForSelector('.step');
+  await page.click('details.stops summary');
+  check(await page.locator('.step .late').count() === 0, 'details: on time when opened');
+  t.api.opts.late = 6;
+  await page.clock.runFor(61000); await page.waitForTimeout(800);
+  check((await page.locator('.step .late').first().innerText().catch(() => '')).includes('延誤 6 分鐘'), 'details: a delay announced a minute later shows up by itself');
+  check(await page.locator('details.stops').evaluate((d) => d.open), 'details: the open stop list stays open through the update');
+  t.api.opts.late = 0;
+  await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
+
+  // Back from a trip's details: the list is where they left it
+  await page.evaluate(() => window.scrollTo(0, 600)); await page.waitForTimeout(100);
+  const y0 = await page.evaluate(() => window.scrollY);
+  await page.evaluate(() => [...document.querySelectorAll('.card[data-j]')].pop().click());
+  await page.waitForSelector('.step');
+  await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
+  const y1 = await page.evaluate(() => window.scrollY);
+  check(y0 > 200 && Math.abs(y1 - y0) < 5, `back from details: same place in the list (scrolled ${y0} → ${y1})`);
   check(t.errors.length === 0, `no page errors (${t.errors.join(' | ')})`);
   await t.close();
 };

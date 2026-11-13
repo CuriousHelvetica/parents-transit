@@ -19,11 +19,11 @@ Each check prints `PASS` or `FAIL`; the run ends with a summary and exits with a
 
 | File | Covers |
 |---|---|
-| `logic.test.js` | Time words, Sydney time and daylight saving, ◀ ▶ rounding, plans never in the past, notice text cleaning (HTML can't run), notice priority, station names kept out of translation, trip matching, slower walk from home, ◀ ▶ memory bookkeeping, stop countdown maths, which service was boarded, Cantonese voice choice, Chinese place search, Uber link |
+| `logic.test.js` | Time words, Sydney time and daylight saving, ◀ ▶ rounding, plans never in the past, notice text cleaning (HTML can't run), notice priority (important ones kept), slower walking and tight changes, trips listed until the train leaves, station names kept out of translation, trip matching, slower walk from home, ◀ ▶ memory bookkeeping, stop countdown maths, which service was boarded, Cantonese voice choice, Chinese place search, Uber link |
 | `home.test.js` | Main screen (two questions), start / destination lists, ↺ 重新開始, 🔍 其他地點, ⚙️ 設定 (move, delete, add, restore, voice test, version), live 📍 你在 (movement, 30 s gap, GPS on/off with the screen, tap, no GPS, no permission) |
-| `trips.test.js` | Trip list in time order, ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶ (rounding, instant from memory, quick tapping on a slow network), 改時間及日期 (cancel, arrive-by), back from details, offline + 重試, 30-minute rule for live buttons, trains that just left, two trips sharing a first train, errors, ⭐ save, 15-second updates without redrawing, refresh when coming back to the app |
+| `trips.test.js` | Trip list in time order, ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶ (rounding, instant from memory, quick tapping on a slow network), 改時間及日期 (cancel, arrive-by), back from details, offline + 重試, 30-minute rule for live buttons, trains that just left (folded), stale-times warning, details refresh, scroll position, two trips sharing a first train, errors, ⭐ save, 15-second updates without redrawing, refresh when coming back to the app |
 | `details.test.js` | Steps, platform, direction, stop list, service notices (translated, severe open, routine folded, HTML harmless, remembered), map link, 🔊 朗讀 |
-| `countdown.test.js` | 📍 還有幾個站 on a simulated bus ride (🔔 and arrival alerts), and the 「可能不是原定班次」 note for earlier / later services |
+| `countdown.test.js` | 📍 還有幾個站 on a simulated bus ride (🔔 and arrival alerts), no GPS signal, location refused, one-stop rides, the 下一程 button, and the 「可能不是原定班次」 note for earlier / later services |
 | `worker.test.js` | The Cloudflare Worker with a fake Workers AI: model order, automatic fallback when a model is retired, `TRANSLATE_MODEL`, `/status`, origin checks |
 | `layout.test.js` | Every screen fits at 393, 375 and 320 px wide |
 

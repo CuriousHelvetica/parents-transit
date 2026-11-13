@@ -67,7 +67,7 @@ Edit [`config.js`](config.js) in this repository and replace `https://REPLACE-ME
 3. From now on, open it from the 「爸媽出行」 icon (the heart with the Opera House).
 
 ### Set their real home address
-The default "home" is Rhodes Station. For accurate "leave home at…" times, set their real address:
+The default "home" is Rhodes Station. For the right walking time and stops, set their real address:
 1. In the app tap **⚙️ 設定** → next to 住址 tap **更改**.
 2. Type their address in English (e.g. `1 Walker St Rhodes`), tap **🔍 搜尋**, and pick the right result.
 
@@ -104,6 +104,8 @@ From 30 minutes before a trip leaves, each walking step (to a station, bus stop 
 ### When to get off (顯示途經車站 / 還有幾個站)
 - Each ride step has **顯示途經車站**: the list of every stop with times. The stop before theirs is marked **🔔 下一站下車,請按鐘**, and their stop **📍 在此下車**.
 - From 30 minutes before departure, buses (and trains) also have **📍 上車後按這裡:還有幾個站**. Tap it once on board: the screen shows **還有 N 個站**, crossing off stops using GPS. When the next stop is theirs the whole screen **flashes** with **🔔 下一站下車 請按鐘!**; at their stop it turns **green: 📍 到站,請下車!** Tap **← 結束** when done.
+- **In tunnels** (no GPS) a yellow warning 「⚠️ 沒有定位訊號 … 請留意車上廣播及顯示屏」 appears and the count carries on by the timetable, marked 「大約」. Tell them to trust the announcements there.
+- **Changing trains:** when 「📍 到站,請下車!」 shows, a **➡️ 下一程** button continues the countdown with the next ride.
 - The app must stay **open on screen** during the ride (it keeps the screen on by itself on iOS 18.4 or later). iPhone web apps cannot vibrate, so the alert is visual only.
 - **Open the card for the train or bus they actually take.** If they catch one earlier or later on the same line, the countdown still works: it shows **✓ 已上車** when the vehicle leaves and follows the real departure time. If that looks like a different service from the card, a yellow note **⚠️ 可能不是原定班次** asks them to check the platform or on-board display shows their stop (some express trains skip stations).
 - Worth trying once together on a short bus ride.
@@ -129,7 +131,7 @@ In **⚙️ 設定** you can add places (➕ 加新地方), delete (🗑️), or
    - **◀ 早一點 / 遲一點 ▶** (earlier / later) move 30 minutes each tap. **⏱️ 現在** jumps back to now.
    - **📅🕘 改時間及日期** (change time and date) opens a page: 哪一天? (today / tomorrow / day after, or another date), 出發還是到達? (leave at / arrive by), 幾點? (time). **✓ 確定** shows that time, **✕ 取消** goes back unchanged.
    - The time the list is for is shown in blue above the buttons, e.g. 「明天 早上 9:30 出發」.
-5. Each card says **「X 分鐘後出門」** (leave in X minutes). At ⏱️ 現在, trains or buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」): if they jumped on in a rush, tap theirs to see the stops and 📍 還有幾個站. Tap a card for step-by-step directions; **← 返回** comes back to the same list.
+5. Each card says when the train or bus leaves: **「晚上 6:21 開車 · 21 分鐘後」**, then **「🚶 步行到 羅德站 約 14 分鐘」** (the walk at their pace: Transport for NSW's time plus 40%), the arrival time and 全程. They judge when to leave home. 「⚠️ 步行需時較長,可能趕不及」 means the walk is longer than the time left; 「⚠️ 轉車時間緊迫」 means a change is too tight for their pace. At ⏱️ 現在, trains or buses that left in the last 20 minutes are under **「剛開出的班次 (n) — 如已上車按此」**: if they jumped on in a rush, tap it, then theirs, to see the stops and 📍 還有幾個站. Tap a card for step-by-step directions; **← 返回** comes back to the same list.
 6. **⚠️ 服務通知** (service notices) are translated into Chinese; tap 英文原文 for the English.
 7. **🔊 朗讀** reads the steps aloud in Cantonese (tap again to stop).
 8. For trips leaving within 30 minutes: **🗺️ 地圖指路** (walking directions), **📍 上車後按這裡:還有幾個站** (stop countdown on the bus). **🚕 改搭 Uber? 查看價錢** is always there.

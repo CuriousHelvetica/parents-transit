@@ -182,29 +182,31 @@ function noticesOf(leg) {
     // Transport for NSW gives each notice a priority (veryLow … veryHigh); only high ones stay open
     const priority = String(x.priority || '');
     return { key: en, en, priority, severe: /^(high|veryhigh|urgent)$/i.test(priority) };
-  }).filter((n) => n.en && !seen.has(n.key) && seen.add(n.key)).slice(0, 3);
+  }).filter((n) => n.en && !seen.has(n.key) && seen.add(n.key))
+    .sort((a, b) => b.severe - a.severe).slice(0, 3);   // important ones first, so they are never cut off
 }
 
 // ---------- API (through the Cloudflare Worker) ----------
 // Every request gives up after 20 seconds, so a weak connection shows 「無法連接」 + 重試
 // instead of 「正在搜尋路線…」 forever.
 const FETCH_TIMEOUT_MS = 20000;
-async function fetchWithTimeout(url) {
+// `read` turns the response into the result; it runs inside the time limit, so a download that
+// stalls half-way is cut off too.
+async function fetchWithTimeout(url, read = (res) => res) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(url, { signal: ctrl.signal });
+    return await read(await fetch(url, { signal: ctrl.signal }));
   } catch (e) {
     throw new Error(e.name === 'AbortError' ? '連線逾時' : e.message);
   } finally {
     clearTimeout(t);
   }
 }
+const readJson = (res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); };
 async function api(endpoint, params) {
   const q = new URLSearchParams({ outputFormat: 'rapidJSON', coordOutputFormat: 'EPSG:4326', version: '10.2.1.42', ...params });
-  const res = await fetchWithTimeout(`${WORKER_URL}/tp/${endpoint}?${q}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return fetchWithTimeout(`${WORKER_URL}/tp/${endpoint}?${q}`, readJson);
 }
 
 async function searchPlaces(text) {
@@ -337,8 +339,8 @@ function translate(text) {
   if (translations[text]) return Promise.resolve(translations[text]);
   if (!pendingTr[text]) {
     const { text: masked, places } = protectPlaces(text);
-    pendingTr[text] = fetchWithTimeout(`${WORKER_URL}/translate?${new URLSearchParams({ text: masked })}`)
-      .then((r) => (r.ok ? r.json() : null))
+    pendingTr[text] = fetchWithTimeout(`${WORKER_URL}/translate?${new URLSearchParams({ text: masked })}`,
+      (r) => (r.ok ? r.json() : null))
       .then((d) => {
         const zh = d && d.zh ? restorePlaces(d.zh, places) : null;
         if (zh) {
@@ -423,9 +425,7 @@ async function lookupTfnsw(lat, lon) {
 }
 async function lookupOsm(lat, lon) {
   const q = new URLSearchParams({ format: 'jsonv2', lat, lon, zoom: '18', addressdetails: '1', 'accept-language': 'en' });
-  const res = await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?${q}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const a = (await res.json()).address || {};
+  const a = (await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?${q}`, readJson)).address || {};
   const suburb = a.suburb || a.city_district || a.town || a.village || a.city || '';
   return suburb ? { suburb, street: a.road || a.pedestrian || '', source: 'osm',
     raw: [a.house_number, a.road, suburb].filter(Boolean).join(' ') } : null;
@@ -737,6 +737,8 @@ function showPlanPage(draftIn, done) {
 // ---------- Time on the trip list: ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶ ----------
 const STEP_MS = 30 * 60000;
 const SHOW_TRIPS = 8;   // trips shown at a time
+const STALE_SOON_MS = 3 * 60000;    // live times older than this get a warning (trips within 90 minutes)
+const STALE_LATER_MS = 8 * 60000;   // ... and for later trips, which refresh every 5 minutes
 const ARRIVE_WINDOW_MS = 60 * 60000;   // arrive-by lists: trips arriving in the hour before the time
 // 'YYYY-MM-DD', 'HH:MM' (Sydney time) -> milliseconds. Two passes settle the daylight-saving offset.
 function sydneyEpoch(date, time) {
@@ -837,7 +839,7 @@ function knownUntil(pool, arrive, t) {
   return edge;
 }
 // The trips to show for `when`, earliest departure first. null = not fetched yet.
-function tripsFor(pool, when, fromHome) {
+function tripsFor(pool, when) {
   const arrive = isArrive(when);
   const t = whenTime(when);
   const edge = knownUntil(pool, arrive, t);
@@ -849,15 +851,16 @@ function tripsFor(pool, when, fromHome) {
     list = list.filter((j) => arrMs(j) <= t + 60000 && arrMs(j) >= edge).sort((a, b) => arrMs(b) - arrMs(a));
     const inHour = list.filter((j) => arrMs(j) >= t - ARRIVE_WINDOW_MS);
     list = inHour.length ? inHour : list.slice(0, 1);
+  } else if (when.mode !== 'later') {
+    // 現在: every trip whose train or bus has not left yet, even if the walk to it should have started
+    list = list.filter((j) => rideMs(j) >= t - 30000 && depMs(j) <= edge);
   } else {
     // A few minutes' leeway: Transport for NSW sometimes includes a trip just before the asked time
-    list = list.filter((j) => depMs(j) >= t - 5 * 60000 && depMs(j) <= edge).sort((a, b) => depMs(a) - depMs(b));
+    list = list.filter((j) => depMs(j) >= t - 5 * 60000 && depMs(j) <= edge);
   }
-  // They walk slowly from home; hide trips that left more than a minute ago
-  return list.map((j) => (fromHome ? slowerHomeWalk(j) : j))
-    .filter((j) => minutesUntil(depTime(j.legs[0].origin)) >= -1)
-    .slice(0, SHOW_TRIPS)
-    .sort((a, b) => depMs(a) - depMs(b));
+  const byRide = (a, b) => rideMs(a) - rideMs(b) || arrMs(a) - arrMs(b);
+  if (!arrive) list.sort(byRide);
+  return list.slice(0, SHOW_TRIPS).sort(byRide);
 }
 
 // For 「現在」: trips whose first train or bus left in the last DEPARTED_MIN minutes, so someone who
@@ -868,13 +871,15 @@ function firstRideMs(j) {
   const r = j.legs.find((l) => !modeOf(l).walk);
   return r ? depTime(r.origin).getTime() : NaN;
 }
-function departedFor(pool, fromHome) {
+// When the trip's first train or bus leaves its stop (a walk-only trip: when the walk starts).
+// This is the time shown on the cards and the one the lists are ordered by.
+function rideMs(j) { const x = firstRideMs(j); return isNaN(x) ? depMs(j) : x; }
+function departedFor(pool) {
   const now = Date.now();
   return [...pool.trips.values()]
     .filter((j) => { const x = firstRideMs(j); return x <= now - 30000 && x >= now - DEPARTED_MIN * 60000; })
     .sort((a, b) => firstRideMs(b) - firstRideMs(a))
     .slice(0, DEPARTED_MAX)
-    .map((j) => (fromHome ? slowerHomeWalk(j) : j))
     .sort((a, b) => firstRideMs(a) - firstRideMs(b));
 }
 
@@ -888,7 +893,6 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   const mine = () => state.screen === 'trips' && tripsRun === run;
   // 📍 現在位置 can change between visits, so its trips are never reused
   const pool = (originPlace !== 'here' && opts.pool) || newTripPool();
-  const fromHome = originPlace === settings.home;
   const fromLabel = originPlace === 'here' ? '📍 現在位置' : esc(originPlace.zh || originPlace.en);
   const toLabel = esc(destPlace.zh || destPlace.en);
   const isSaved = () => settings.places.some((p) => p.query === destPlace.query);
@@ -933,14 +937,21 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   let waiting = false; // the screen shows 「正在搜尋路線…」
   let shownNow = [];   // the trips on screen, in card order (read when a card is tapped)
   let lastHtml = '';
-  const again = () => showTrips(originPlace, destPlace, when, { ...opts, pool });
+  let goneOpen = false;   // the 「剛開出的班次」 fold
+  let backScroll = 0;     // where the list was when a trip was opened
+  const again = () => showTrips(originPlace, destPlace, when, { ...opts, pool, scrollY: backScroll });
+  // A trip's details page asks for fresh live times: the same trip from a new search, or null
+  const refetch = async (j) => {
+    await fetchTrips(pool, origin, dest, planAt(depMs(j) - 60000, false));
+    return { j: pool.trips.get(tripKey(j)) || null, others: [...pool.trips.values()] };
+  };
   // What the list shows now: trips that just left (at 現在 only), then upcoming trips. null = not fetched yet.
   const current = () => {
-    const upcoming = tripsFor(pool, when, fromHome);
+    const upcoming = tripsFor(pool, when);
     if (!upcoming) return null;
     const upKeys = new Set(upcoming.map(tripKey));
     const departed = when.mode !== 'later'
-      ? departedFor(pool, fromHome).filter((j) => !upKeys.has(tripKey(j))) : [];
+      ? departedFor(pool).filter((j) => !upKeys.has(tripKey(j))) : [];
     return { upcoming, departed, shown: [...departed, ...upcoming] };
   };
   // The page for the trips on screen: { cur, html }
@@ -955,9 +966,17 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     } else {
       const { upcoming, departed, shown } = cur;
       const uber = uberBlock(destPlace, upcoming);
+      // No "updated at" line while all is well; a clear warning when the times on screen may be old
       const updated = fetchedAt(pool, isArrive(when), whenTime(when)) || pool.updated;
-      body = `<div class="sub">更新時間 ${fmtTime(new Date(updated))}・自動更新</div>` + (shown.length
-        ? shown.map((j, i) => journeyCard(j, i, i < departed.length)).join('')
+      const soon = whenTime(when) - Date.now() < 90 * 60000;
+      const stale = failed || Date.now() - updated > (soon ? STALE_SOON_MS : STALE_LATER_MS)
+        ? `<div class="stale">⚠️ 未能更新,以下時間可能不準<div>最後更新 ${fmtTime(new Date(updated))}・請檢查網絡</div></div>` : '';
+      // Trains and buses that just left: one folded line, so the coming trips keep their place
+      const gone = departed.length ? `<details class="gone"${goneOpen ? ' open' : ''}>
+        <summary>剛開出的班次 (${departed.length}) — 如已上車按此</summary>
+        ${departed.map((j, i) => goneRow(j, i)).join('')}</details>` : '';
+      body = stale + gone + (upcoming.length
+        ? upcoming.map((j, i) => journeyCard(j, departed.length + i)).join('')
         : '<div class="msg">這段時間找不到路線。<br>請按 ◀ 早一點 / 遲一點 ▶,或改時間。</div>') + uber;
     }
     return { cur, html: header() + timeBarHtml(when) + body };
@@ -975,14 +994,17 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     wireSave();
     $app.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => setWhen(stepWhen(when, +b.dataset.step)));
     $app.querySelector('[data-now]').onclick = () => setWhen({ mode: 'now' });
-    $app.querySelector('[data-change]').onclick = () =>
-      showPlanPage(when.mode === 'later' ? { ...when } : null, (w) => { if (w) when = w; again(); });
+    $app.querySelector('[data-change]').onclick = () => { backScroll = 0; showPlanPage(when.mode === 'later' ? { ...when } : null, (w) => { if (w) when = w; again(); }); };
     const r = $app.querySelector('[data-retry]');
     if (r) r.onclick = () => { failed = null; draw(); fetchScreen(); };
-    $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () =>
-      showJourney(shownNow[+b.dataset.j], again, [...pool.trips.values()]));
+    const fold = $app.querySelector('details.gone');
+    if (fold) fold.ontoggle = () => { goneOpen = fold.open; lastHtml = build().html; };
+    $app.querySelectorAll('[data-j]').forEach((b) => b.onclick = () => {
+      backScroll = window.scrollY;
+      showJourney(shownNow[+b.dataset.j], again, [...pool.trips.values()], refetch);
+    });
   };
-  // Every 15 seconds: if only the 「X 分鐘後出門」 lines changed, update them in place; otherwise redraw
+  // Every 15 seconds: if only the 「X 分鐘後」 headlines changed, update them in place; otherwise redraw
   const withoutLeave = (h) => h.replace(/<div class="leave[^"]*">[\s\S]*?<\/div>/g, '');
   const tick = () => {
     if (!mine()) return;
@@ -992,7 +1014,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     const cards = $app.querySelectorAll('[data-j]');
     cur.shown.forEach((j, i) => {
       const el = cards[i] && cards[i].querySelector('.leave');
-      const lt = journeyLeaveText(j);
+      const lt = i < cur.departed.length ? { cls: 'gone', text: goneRowText(j) } : journeyLeaveText(j);
       if (el) { el.className = `leave ${lt.cls}`; el.innerHTML = lt.text; }
     });
     shownNow = cur.shown;
@@ -1074,7 +1096,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
         inflight.delete(f);
         if (!mine()) return;
         // A block read ahead may already hold the time the screen is waiting for
-        if ((waiting && tripsFor(pool, when, fromHome)) || (when.mode !== 'later' && f.T < Date.now())) draw();
+        if ((waiting && tripsFor(pool, when)) || (when.mode !== 'later' && f.T < Date.now())) draw();
         fill();
       }, () => { inflight.delete(f); pauseUntil = Date.now() + 10000; });
     }
@@ -1098,6 +1120,7 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
     busy = setTimeout(() => mine() && refreshScreen(60000), 800);   // does nothing once the list is closed
   };
   draw();
+  if (opts.scrollY) window.scrollTo(0, opts.scrollY);   // back from a trip's details: same place in the list
   await fetchScreen();
   timers.push(setInterval(() => mine() && refreshScreen(55000), 60000));
   timers.push(setInterval(tick, 15000));
@@ -1105,18 +1128,31 @@ async function showTrips(originPlace, destPlace, when, opts = {}) {
   onResume = () => { if (mine()) { tick(); refreshScreen(30000); } };
 }
 
-// They walk slowly: the first walk from 家 gets HOME_WALK_EXTRA_MIN more minutes, so they leave earlier
-// and still catch the same bus or train (its time doesn't change).
-const HOME_WALK_EXTRA_MIN = 5;
-function slowerHomeWalk(j) {
-  const first = j.legs[0];
-  if (!first || !modeOf(first).walk || j.legs.length < 2) return j;
-  const extra = HOME_WALK_EXTRA_MIN * 60000;
-  const earlier = (t) => (t ? new Date(new Date(t).getTime() - extra).toISOString() : t);
-  const origin = { ...first.origin,
-    departureTimePlanned: earlier(first.origin.departureTimePlanned),
-    departureTimeEstimated: earlier(first.origin.departureTimeEstimated) };
-  return { ...j, legs: [{ ...first, origin, duration: (first.duration || 0) + HOME_WALK_EXTRA_MIN * 60 }, ...j.legs.slice(1)] };
+// They walk slowly: every walking time from Transport for NSW (worked out for a brisk adult) is shown
+// WALK_SLOW times longer, rounded up. Only the walking minutes change; no train or arrival time moves.
+const WALK_SLOW = 1.4;
+function slowWalkMin(seconds) { return Math.max(1, Math.ceil(((seconds || 0) / 60) * WALK_SLOW)); }
+// Changes with less time than their walk needs: [{ leg (the first walk leg of the change), gap, walk }] in minutes
+function tightChanges(j) {
+  const out = [];
+  let prev = null, walkSec = 0, firstWalk = null;
+  j.legs.forEach((l) => {
+    if (modeOf(l).walk) { walkSec += l.duration || 0; firstWalk = firstWalk || l; return; }
+    if (prev && walkSec > 0) {
+      const gap = Math.round((depTime(l.origin) - arrTime(prev.destination)) / 60000);
+      const walk = slowWalkMin(walkSec);
+      if (walk > gap) out.push({ leg: firstWalk, gap, walk });
+    }
+    prev = l; walkSec = 0; firstWalk = null;
+  });
+  return out;
+}
+// The walk before the first train or bus: { to, min } or null (trip starts at the stop, or is all walking)
+function firstWalk(j) {
+  const k = j.legs.findIndex((l) => !modeOf(l).walk);
+  if (k <= 0) return null;
+  const walks = j.legs.slice(0, k);
+  return { to: walks[k - 1].destination.name, min: slowWalkMin(walks.reduce((x, l) => x + (l.duration || 0), 0)) };
 }
 
 
@@ -1156,58 +1192,77 @@ function showError(header, text, extra = '', retry = null) {
   $app.querySelector('[data-retry]').onclick = () => (retry ? retry() : location.reload());
 }
 
-// Once the first train or bus has left, say so instead of 「已錯過」 (they may be on it)
+// The headline of a trip: when its first train or bus leaves the stop, and how long until then.
+// 「晚上 6:21 開車 · 21 分鐘後」; once it has left: 「火車已開出 3 分鐘」 (they may be on it).
 function journeyLeaveText(j) {
   const r = j.legs.find((l) => !modeOf(l).walk);
-  const x = firstRideMs(j);
-  if (r && x <= Date.now() - 30000) {
+  if (!r) {
+    return { cls: '', text: `🚶 全程步行約 ${slowWalkMin(j.legs.reduce((x, l) => x + (l.duration || 0), 0))} 分鐘` };
+  }
+  const x = rideMs(j);
+  if (x <= Date.now() - 30000) {
     const ago = Math.round((Date.now() - x) / 60000);
     return { cls: 'gone', text: `${modeOf(r).zh}${ago ? `已開出 ${ago} 分鐘` : '剛開出'}` };
   }
-  return leaveText(depTime(j.legs[0].origin));
+  const at = new Date(x);
+  const verb = modeOf(r).key === 'ferry' ? '開船' : '開車';
+  const mins = Math.round((x - Date.now()) / 60000);
+  if (mins >= 180) return { cls: '', text: `${dayLabel(ymdOf(at))}<br>${fmtTime(at)} ${verb}` };
+  const inText = mins < 1 ? '現在' : mins < 60 ? `${mins} 分鐘後` : `${Math.floor(mins / 60)} 小時 ${mins % 60} 分鐘後`;
+  return { cls: '', text: `${fmtTime(at)} ${verb} <span class="in${mins <= 10 ? ' soon' : ''}">· ${inText}</span>` };
 }
-function leaveText(leave) {
-  const mins = minutesUntil(leave);
-  if (mins < -1) return { cls: 'missed', text: '已錯過' };
-  if (mins <= 1) return { cls: 'now', text: '現在出門!' };
-  if (mins < 60) return { cls: '', text: `${mins} 分鐘後出門` };
-  if (mins < 180) return { cls: '', text: `${Math.floor(mins / 60)} 小時 ${mins % 60} 分鐘後出門` };
-  return { cls: '', text: `${dayLabel(ymdOf(leave))}<br>${fmtTime(leave)} 出門` };
+// 「🚶 步行到 羅德站 Rhodes 約 14 分鐘」 (at their pace), for trips that start with a walk
+function walkLineHtml(j) {
+  const w = firstWalk(j);
+  return w ? `<div class="walkline">🚶 步行到 ${placeLabel(w.to)} 約 ${w.min} 分鐘</div>` : '';
 }
 
-// departed: its first train or bus has already left (shown greyed at the top of 「現在」)
-function journeyCard(j, i, departed = false) {
-  const first = j.legs[0];
+function journeyCard(j, i) {
   const last = j.legs[j.legs.length - 1];
-  const leave = depTime(first.origin);
   const arrive = arrTime(last.destination);
   const lt = journeyLeaveText(j);
   const rides = j.legs.filter((l) => !modeOf(l).walk);
   const changes = Math.max(0, rides.length - 1);
-  const total = Math.round((arrive - leave) / 60000);
+  const total = Math.max(0, Math.round((arrive - rideMs(j)) / 60000));
   const firstRide = rides[0];
   let delay = '';
   if (firstRide) {
     const d = delayMin(firstRide.origin, 'departure');
     if (d != null) delay = d > 0 ? `<div class="sub late">第一程車延誤 ${d} 分鐘</div>` : `<div class="sub ontime">準時</div>`;
   }
+  // The walk takes longer than the time left: still listed (they are the judge), with a hint
+  const w = firstWalk(j);
+  const tightWalk = w && firstRide && w.min > (rideMs(j) - Date.now()) / 60000
+    ? '<div class="tight">⚠️ 步行需時較長,可能趕不及</div>' : '';
+  const tightChange = tightChanges(j).length ? '<div class="tight">⚠️ 轉車時間緊迫</div>' : '';
   const allNotices = j.legs.flatMap((l) => noticesOf(l));
   const noticeLine = allNotices.some((n) => n.severe) ? '<div class="sub late">⚠️ 有重要服務通知,請按入查看</div>'
     : allNotices.length ? '<div class="sub">ℹ️ 有一般服務通知</div>' : '';
   const badges = j.legs.map((l) => {
     const m = modeOf(l);
-    if (m.walk) return `<span class="badge m-walk">🚶${Math.max(1, Math.round((l.duration || 0) / 60))}'</span>`;
+    if (m.walk) return `<span class="badge m-walk">🚶${slowWalkMin(l.duration)}分</span>`;
     return `<span class="badge m-${m.key}">${m.icon} ${esc(lineName(l))}</span>`;
   }).join(' › ');
-  return `<button class="card tap${departed ? ' departed' : ''}" data-j="${i}">
+  return `<button class="card tap" data-j="${i}">
     <div class="leave ${lt.cls}">${lt.text}</div>
-    ${departed ? '<div class="sub">如已上車,按此查看下車站</div>' : ''}
-    <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達</div>
+    ${walkLineHtml(j)}${tightWalk}
+    <div class="times">${fmtTime(arrive)} 到達</div>
     <div class="sub">全程 ${total} 分鐘・${changes ? `轉車 ${changes} 次` : '不用轉車'}</div>
+    ${tightChange}
     ${delay}
     ${noticeLine}
     <div class="lines">${badges}</div>
   </button>`;
+}
+// A train or bus that has just left: one compact row inside the folded 「剛開出的班次」 line
+function goneRowText(j) {
+  const r = j.legs.find((l) => !modeOf(l).walk);
+  const x = rideMs(j);
+  const ago = Math.max(0, Math.round((Date.now() - x) / 60000));
+  return `${modeOf(r).icon} ${esc(lineName(r))}・${fmtTime(new Date(x))} 開出 (${ago ? `${ago} 分鐘前` : '剛剛'})`;
+}
+function goneRow(j, i) {
+  return `<button class="gone-row departed" data-j="${i}"><div class="leave gone">${goneRowText(j)}</div><span class="chev">›</span></button>`;
 }
 
 // Stops a ride passes through, from the trip data: [{ name, coord, time }]
@@ -1248,17 +1303,20 @@ function mapLink(stop) {
 // Turn the journey into plain steps, each with screen text and spoken text.
 function journeySteps(j) {
   const steps = [];
+  const tight = tightChanges(j);
   j.legs.forEach((leg, i) => {
     const m = modeOf(leg);
-    const mins = Math.max(1, Math.round((leg.duration || 0) / 60));
     if (m.walk) {
+      const mins = slowWalkMin(leg.duration);
       const to = i === j.legs.length - 1 ? '目的地' : speakName(leg.destination.name);
+      const t = tight.find((x) => x.leg === leg);
       steps.push({
         icon: m.icon,
-        what: `步行 ${mins} 分鐘`,
+        what: `步行約 ${mins} 分鐘`,
         debug: debugTag(leg),
-        detail: i === j.legs.length - 1 ? '步行到目的地' : `步行到 ${placeLabel(leg.destination.name)}`,
-        say: `步行 ${mins} 分鐘,到${to}。`,
+        detail: (i === j.legs.length - 1 ? '步行到目的地' : `步行到 ${placeLabel(leg.destination.name)}`)
+          + (t ? `<div class="tight">⚠️ 轉車時間只有 ${t.gap} 分鐘,步行約 ${t.walk} 分鐘,可能趕不及</div>` : ''),
+        say: `步行約 ${mins} 分鐘,到${to}。` + (t ? `注意,轉車時間只有 ${t.gap} 分鐘,可能趕不及。` : ''),
         map: mapLink(leg.destination),
       });
       return;
@@ -1304,27 +1362,52 @@ function journeySteps(j) {
 // available from LIVE_WINDOW_MIN minutes before departure, however the trip was searched; before that
 // they are shown greyed out with the reason, so nothing seems to vanish.
 const LIVE_WINDOW_MIN = 30;
-const LIVE_NOTE = `出發前 ${LIVE_WINDOW_MIN} 分鐘才可使用`;
+const LIVE_NOTE = `開車前 ${LIVE_WINDOW_MIN} 分鐘才可使用`;
 function liveNow(leave) { return minutesUntil(leave) <= LIVE_WINDOW_MIN; }
 
-// others: all trips in the list, so the countdown can tell which service they actually boarded
-function showJourney(j, goBack, others = []) {
+// The ride after `leg` in the same trip, for the 「下一程」 button on the countdown: { leg, text } or null
+function nextRide(j, leg) {
+  const n = j.legs.slice(j.legs.indexOf(leg) + 1).find((l) => !modeOf(l).walk);
+  if (!n) return null;
+  const plat = platformOf(n.origin.name);
+  return { leg: n, text: `${fmtTime(depTime(n.origin))} ${esc(lineName(n))} ${modeOf(n).zh}${plat ? `,${esc(plat.zh)}` : ''}` };
+}
+// What can change on a trip between two searches (times, platforms, notices)
+function tripSignature(j) {
+  return JSON.stringify(j.legs.map((l) => [l.origin.name, l.origin.departureTimeEstimated, l.origin.departureTimePlanned,
+    l.destination.arrivalTimeEstimated, l.destination.arrivalTimePlanned, (l.infos || []).length]));
+}
+// others: all trips in the list, so the countdown can tell which service they actually boarded.
+// refetch(j): fresh live times for this trip ({ j, others }), so a delay announced later still shows here.
+let journeyRun = 0;
+function showJourney(j, goBack, others = [], refetch = null) {
   clearTimers();
   state.screen = 'journey';
-  const leave = depTime(j.legs[0].origin);
-  const arrive = arrTime(j.legs[j.legs.length - 1].destination);
-  const steps = journeySteps(j);
+  const run = ++journeyRun;
+  const mine = () => state.screen === 'journey' && journeyRun === run;
+  let steps = journeySteps(j);
+  const rideAt = () => new Date(rideMs(j));
   // Read only the trip steps, not the service notices.
   const sayText = () => steps.map((s) => s.say).join(' ');
-  let live = liveNow(leave);
+  const showSaying = () => {
+    const b = $app.querySelector('[data-say]');
+    if (!b) return;
+    b.classList.toggle('primary', isSpeaking());
+    b.textContent = isSpeaking() ? '⏹ 停止' : '🔊 朗讀';
+  };
+  let live = liveNow(rideAt());
   const draw = (keepScroll) => {
     const lt = journeyLeaveText(j);
-    live = liveNow(leave);
+    const arrive = arrTime(j.legs[j.legs.length - 1].destination);
+    live = liveNow(rideAt());
+    // A redraw (fresh live times) keeps the folds they had open
+    const open = [...$app.querySelectorAll('details')].map((d) => d.open);
     render(`<button class="back" data-back>← 返回</button>
       <div class="card">
         <div class="leave ${lt.cls}">${lt.text}</div>
-        <div class="times">${dayLabel(ymdOf(leave))}</div>
-        <div class="times">${fmtTime(leave)} 出發 → ${fmtTime(arrive)} 到達</div>
+        ${walkLineHtml(j)}
+        <div class="times">${dayLabel(ymdOf(rideAt()))}</div>
+        <div class="times">${fmtTime(arrive)} 到達</div>
       </div>
       <div class="bar">
         <button class="btn" data-say>🔊 朗讀</button>
@@ -1340,27 +1423,43 @@ function showJourney(j, goBack, others = []) {
         ${noticesHtml(s.notices)}</div></div>`).join('')}
         <div class="step"><div class="icon">🏁</div><div class="what">${fmtTime(arrive)} 到達</div></div>
       </div>`, keepScroll);
+    if (keepScroll) $app.querySelectorAll('details').forEach((d, k) => { if (open[k]) d.open = true; });
     $app.querySelector('[data-back]').onclick = () => { stopSpeaking(); goBack(); };
     // White when idle, blue with 「停止」 while reading; tap again to stop.
-    const sayBtn = $app.querySelector('[data-say]');
-    const showSaying = (on) => {
-      sayBtn.classList.toggle('primary', on);
-      sayBtn.textContent = on ? '⏹ 停止' : '🔊 朗讀';
-    };
-    sayBtn.onclick = () => {
+    $app.querySelector('[data-say]').onclick = () => {
       if (isSpeaking()) return stopSpeaking();
-      speak(sayText(), () => showSaying(false));
-      showSaying(true);
+      speak(sayText(), showSaying);
+      showSaying();
     };
+    showSaying();
     if (FEATURE_REMINDER) $app.querySelector('[data-remind]').onclick = () => remind(j, steps);
-    $app.querySelectorAll('[data-track]').forEach((b) => b.onclick = () =>
-      showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack, others), others));
+    $app.querySelectorAll('[data-track]').forEach((b) => b.onclick = () => {
+      stopSpeaking();
+      showTracking(steps[+b.dataset.track].leg, () => showJourney(j, goBack, others, refetch), others, (leg) => nextRide(j, leg));
+    });
     fillNotices();
   };
   draw(false);
+  // Fresh live times once a minute while the trip is near (from 90 minutes before to an hour after it leaves)
+  let busy = false;
+  const refresh = async () => {
+    const mins = minutesUntil(rideAt());
+    if (!refetch || busy || !mine() || mins > 90 || mins < -60) return;
+    busy = true;
+    try {
+      const r = await refetch(j);
+      if (mine() && r) {
+        others = r.others || others;
+        if (r.j && tripSignature(r.j) !== tripSignature(j)) { j = r.j; steps = journeySteps(j); draw(true); }
+      }
+    } catch (e) { /* keep what is on screen; tried again next minute */ }
+    busy = false;
+  };
+  timers.push(setInterval(refresh, 60000));
+  onResume = refresh;
   // Redraw only the countdown, so open notices stay open — unless the live buttons just became available.
   timers.push(setInterval(() => {
-    if (liveNow(leave) !== live) return draw(true);
+    if (liveNow(rideAt()) !== live) return draw(true);
     const el = $app.querySelector('.leave');
     if (el) { const lt = journeyLeaveText(j); el.className = `leave ${lt.cls}`; el.innerHTML = lt.text; }
   }, 15000));
@@ -1439,13 +1538,17 @@ function boardedDifferentService(leftAt, services) {
   return !best.selected;
 }
 
-function showTracking(leg, goBack, others = []) {
+// nextOf(leg): the ride after this one in the same trip (for the 「下一程」 button), or null
+const NO_GPS_MS = 45000;   // no position for this long -> warn, and count by the timetable instead
+function showTracking(leg, goBack, others = [], nextOf = null) {
   clearTimers();
   state.screen = 'tracking';
   const m = modeOf(leg);
   const list = rideStops(leg);
   const target = list.length - 1;
-  let passed = 0, watchId = null, wake = null, lastFix = null;
+  const nextUp = nextOf ? nextOf(leg) : null;
+  const startAt = Date.now();
+  let passed = 0, watchId = null, wake = null, lastFix = null, lastFixAt = 0, denied = false, lastHtml = '';
   // Boarding: when the vehicle leaves the first stop. shiftMs moves the stop times to the real service.
   let boarded = false, shiftMs = 0, otherService = false, firstFix = true;
   const services = sameLineServices(leg, others);
@@ -1453,13 +1556,18 @@ function showTracking(leg, goBack, others = []) {
   const firstStopTime = depTime(leg.origin).getTime() || (list[0].time ? new Date(list[0].time).getTime() : null);
   function startWatch() {
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-    watchId = navigator.geolocation.watchPosition(onPosition, () => { lastFix = null; draw(); },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+    watchId = navigator.geolocation.watchPosition(onPosition, (e) => {
+      if (e && e.code === 1) denied = true;   // location switched off for this app
+      lastFix = null;
+      draw();
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
   }
   function onPosition(p) {
     if (state.screen !== 'tracking') return;
     lastFix = p.coords.accuracy;
+    denied = false;
     if (lastFix <= WORST_USABLE_ACCURACY) {
+      lastFixAt = Date.now();
       const pos = [p.coords.latitude, p.coords.longitude];
       const away = list[0].coord ? metres(pos, list[0].coord) : 0;
       if (!boarded && firstFix && away > 200) {
@@ -1477,6 +1585,12 @@ function showTracking(leg, goBack, others = []) {
     }
     draw();
   }
+  // Stops the timetable says have been reached by now. Never the last one: "arrived" is only said from GPS.
+  const byTimetable = () => {
+    let k = 0;
+    while (k + 1 < target && list[k + 1].time && new Date(list[k + 1].time).getTime() + shiftMs <= Date.now()) k += 1;
+    return k;
+  };
   // iPhone cancels the screen-on request whenever the app goes to the background; ask again on return.
   const askScreenOn = () => keepScreenOn().then((w) => {
     wake = w;
@@ -1498,32 +1612,57 @@ function showTracking(leg, goBack, others = []) {
   };
   const draw = () => {
     if (state.screen !== 'tracking') return;
-    const left = target - passed;
-    const bell = left === 1, here = left <= 0;
+    // No position for a while (tunnel, underground platform, location switched off): say so clearly and
+    // count by the timetable, marked as an estimate, instead of standing still without a word.
+    const quiet = Date.now() - (lastFixAt || startAt);
+    const noGps = denied || quiet > NO_GPS_MS;
+    const done = noGps ? Math.max(passed, byTimetable()) : passed;
+    const left = target - done;
+    const started = boarded || done > 0 || (noGps && firstStopTime && Date.now() >= firstStopTime + shiftMs);
+    // 🔔 only once they are on the way: a one-stop ride must not flash on the platform
+    const bell = left === 1 && started, here = left <= 0;
     document.body.classList.toggle('alert-bell', bell);
     document.body.classList.toggle('alert-off', here);
-    const big = here ? '📍 到站,請下車!' : bell ? (m.key === 'bus' ? '🔔 下一站下車<br>請按鐘!' : '下一站下車!') : `還有 ${left} 個站`;
-    const next = list[Math.min(passed + 1, target)];
-    render(`<button class="back" data-back>← 結束</button>
+    const about = noGps && !here ? '大約' : '';
+    const big = here ? '📍 到站,請下車!'
+      : bell ? (m.key === 'bus' ? `🔔 ${about}下一站下車<br>請按鐘!` : `${about}下一站下車!`) : `${about}還有 ${left} 個站`;
+    const next = list[Math.min(done + 1, target)];
+    const warn = denied ? `<div class="nogps">⚠️ 未能使用定位<br>請在 iPhone「設定」開啟定位服務 (Safari 網站),並留意車上廣播及顯示屏</div>`
+      : noGps ? `<div class="nogps">⚠️ 沒有定位訊號 (例如在隧道內)<br>請留意車上廣播及顯示屏</div>` : '';
+    const status = denied ? '未能使用定位'
+      : noGps ? `定位訊號已中斷 ${Math.max(1, Math.round(quiet / 60000))} 分鐘`
+      : !lastFix ? '定位中…'
+      : lastFix > WORST_USABLE_ACCURACY ? `定位不準 (約 ${Math.round(lastFix)} 米),等待中…`
+      : `定位準確度約 ${Math.round(lastFix)} 米`;
+    const html = `<button class="back" data-back>← 結束</button>
       <div class="track-head">乘搭 <span class="badge m-${m.key}">${esc(lineName(leg))}</span> ${m.zh}${
         boarded ? ' <span class="boarded">✓ 已上車</span>' : ''}</div>
       ${otherService ? `<div class="other-service">⚠️ 可能不是原定班次 — 請看月台或車上顯示屏,確認會停
         <b>${placeLabel(list[target].full || list[target].name)}</b></div>` : ''}
+      ${warn}
       <div class="track-big">${big}</div>
+      ${noGps && !here ? '<div class="est">按時間表估計,未必準確</div>' : ''}
+      ${here && nextUp ? (canTrack(nextUp.leg)
+        ? `<button class="btn primary big next" data-next>➡️ 下一程<span>${nextUp.text}</span><span>上車後按這裡繼續</span></button>`
+        : `<div class="card next-info">➡️ 下一程:${nextUp.text}</div>`) : ''}
       ${here ? '' : `<div class="track-row">下一站:<b>${placeLabel(next.full || next.name)}</b></div>`}
       <div class="track-row">下車站:<b>${placeLabel(list[target].full || list[target].name)}</b></div>
-      <div class="small">${!lastFix ? '定位中…'
-        : lastFix > WORST_USABLE_ACCURACY ? `定位不準 (約 ${Math.round(lastFix)} 米),等待中…`
-        : `定位準確度約 ${Math.round(lastFix)} 米`}・${wake && !wake.released
+      <div class="track-status">${status}・${wake && !wake.released
         ? '螢幕會保持開啟' : '請保持此畫面開啟,不要鎖機'}</div>
-      <ol class="track-list">${list.map((st, k) => `<li class="${k <= passed ? 'done' : ''} ${k === target ? 'getoff' : ''} ${k === target - 1 ? 'bell' : ''}">
-        ${k === target ? '📍 ' : ''}${placeLabel(st.full || st.name)}</li>`).join('')}</ol>`, true);
+      <ol class="track-list">${list.map((st, k) => `<li class="${k <= done ? 'done' : ''} ${k === target ? 'getoff' : ''} ${k === target - 1 ? 'bell' : ''}">
+        ${k === target ? '📍 ' : ''}${placeLabel(st.full || st.name)}</li>`).join('')}</ol>`;
+    if (html === lastHtml) return;   // nothing changed: leave the page (and any finger on it) alone
+    lastHtml = html;
+    render(html, true);
     $app.querySelector('[data-back]').onclick = () => { stop(); goBack(); };
+    const nx = $app.querySelector('[data-next]');
+    if (nx) nx.onclick = () => { stop(); showTracking(nextUp.leg, goBack, others, nextOf); };
   };
   if (!navigator.geolocation) { alert('這部電話不支援定位'); return goBack(); }
   startWatch();
   askScreenOn();
   draw();
+  timers.push(setInterval(draw, 5000));   // notices a lost signal, and moves the timetable estimate on
 }
 
 // ---------- Read aloud in Cantonese ----------

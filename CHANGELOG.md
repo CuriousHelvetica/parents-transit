@@ -16,10 +16,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - Only public transport and walking — never cycling, driving or taxi legs.
 
 **Trip list**
-- 「X 分鐘後出門」 countdown, departure and arrival times (凌晨 / 清晨 / 早上 / 中午 / 下午 / 晚上), total time, number of changes, delays, service-notice warning.
-- In time order (earliest departure first). Arrive-by: only trips arriving in the hour before the chosen time. At 現在, trains and buses that left in the last 20 minutes are shown greyed at the top (「火車已開出 X 分鐘」), so someone who jumped on in a rush can still open theirs.
+- Each card: when the first train or bus leaves its stop and how long until then (「晚上 6:21 開車 · 21 分鐘後」), the walk to it at their pace (「步行到 羅德站 約 14 分鐘」, Transport for NSW's time +40%), arrival time, 全程 from that departure to arrival, number of changes, delays, service-notice warning. Hints when the walk is longer than the time left, or a change is too tight for their pace.
+- In time order (earliest departure first); a trip stays listed until its train or bus has left. Arrive-by: only trips arriving in the hour before the chosen time. At 現在, trains and buses that left in the last 20 minutes are folded under one line, 「剛開出的班次 (n) — 如已上車按此」, so someone who jumped on in a rush can still open theirs.
 - Time bar: ◀ 早一點 / 遲一點 ▶ move 30 minutes (rounded to :00 or :30), ⏱️ 現在 goes back to leave now, 📅🕘 改時間及日期 picks a day and a leave-at or arrive-by time. Trips already fetched for the route are kept in memory, so ◀ ▶ show trips at once while live times refresh in the background.
-- Updates automatically (every minute for trips leaving within about 90 minutes, every 5 minutes for later ones).
+- Updates automatically (every minute for trips leaving within about 90 minutes, every 5 minutes for later ones). If the times can't be refreshed, a yellow 「⚠️ 未能更新,以下時間可能不準」 warning shows.
 - 🚕 改搭 Uber? 查看價錢 (always; a price guide for planned trips): opens Uber with pickup = current location and the destination filled in.
 
 **Trip details**
@@ -30,7 +30,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - 顯示途經車站: every stop with times; 🔔 on the stop before the one to get off at.
 - From 30 minutes before departure:
   - 🗺️ 地圖指路: Apple Maps walking directions to each stop.
-  - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps. Shows 「✓ 已上車」 once the vehicle leaves; if they caught an earlier or later service on the same line, the stop times follow the real departure, and a yellow 「⚠️ 可能不是原定班次」 note asks them to check the display shows their stop.
+  - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps. Without a GPS signal (tunnels) or with location switched off, a yellow warning shows and the count carries on by the timetable, marked 「大約」. At the stop, a 「下一程」 button continues with the next ride. Shows 「✓ 已上車」 once the vehicle leaves; if they caught an earlier or later service on the same line, the stop times follow the real departure, and a yellow 「⚠️ 可能不是原定班次」 note asks them to check the display shows their stop.
 
 **Settings (⚙️ 設定)**
 - Home address, frequent places (add, delete, reorder), Cantonese voice test, restore defaults. (Reminder lead time hidden with ⏰ 提醒我.)
@@ -42,6 +42,30 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.6.0 — 2026-11-13
+Departure times instead of "leave home" times:
+- Cards and the details page now show when the train or bus leaves its stop: 「晚上 6:21 開車 · 21 分鐘後」, in place of 「X 分鐘後出門」. Underneath: 「🚶 步行到 羅德站 約 14 分鐘」 (trips that start with a walk), then the arrival time and 全程 (from that departure to arrival).
+- The extra 5 minutes added to the walk from home is gone. Every walking time is shown 40% longer than Transport for NSW's, rounded up (`WALK_SLOW` in `app.js`); no train or arrival time is changed.
+- A trip stays in the list until its train or bus has left (before, it vanished once the "leave home" time passed). If the walk is longer than the time left, the card says 「⚠️ 步行需時較長,可能趕不及」.
+- Tight changes: when the time between two rides is shorter than the walk at their pace, the card says 「⚠️ 轉車時間緊迫」 and the walk step 「⚠️ 轉車時間只有 5 分鐘,步行約 6 分鐘,可能趕不及」.
+- 🗺️ 地圖指路 and 📍 還有幾個站 switch on 30 minutes before the train or bus leaves (「開車前 30 分鐘才可使用」).
+
+Trip list:
+- Trains and buses that just left are folded under one line, 「剛開出的班次 (n) — 如已上車按此」, with compact rows inside, so the coming trips stay in place.
+- The 「更新時間 … 自動更新」 line is gone. A yellow 「⚠️ 未能更新,以下時間可能不準 (最後更新 …)」 warning shows only when the live times could not be refreshed or are more than a few minutes old.
+- Coming back from a trip's details returns to the same place in the list.
+- Walk badges read 「🚶14分」 instead of 「🚶15'」.
+
+Safety and reliability (from the review):
+- 📍 還有幾個站 without GPS (tunnels, underground platforms): after 45 seconds without a position a yellow 「⚠️ 沒有定位訊號 … 請留意車上廣播及顯示屏」 warning shows, and the count carries on by the timetable, marked 「大約」 and 「按時間表估計,未必準確」. 「到站」 is only ever said from GPS.
+- With location switched off for the app, the countdown says so (「⚠️ 未能使用定位 …」) instead of 「定位中…」 forever.
+- A one-stop ride no longer flashes 「下一站下車!」 on the platform; only once on the way.
+- Changing trains: at the stop, a 「➡️ 下一程」 button (time, line, platform) continues the countdown with the next ride.
+- Important service notices are listed first, so they are never among the ones cut off (3 per ride are shown).
+- A trip's details page refreshes its live times every minute (a delay announced later now shows), keeping open folds open.
+- A search that stalls half-way through downloading is cut off after 20 seconds, instead of 「正在搜尋路線…」 forever.
+- Small grey text is larger and darker; 「顯示途經車站」, 「服務通知」 and 「英文原文」 are easier to tap.
 
 ### v1.5.7 — 2026-11-07
 - 改時間及日期 fits on one iPhone screen: title beside ✕ 取消, two-line day buttons (今天 / 11月7日 (六)), 「或選擇其他日子」 beside its date box, and the summary shown on the ✓ 確定 button instead of a separate card.
