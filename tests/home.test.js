@@ -15,7 +15,7 @@ module.exports = async (check) => {
 
   // ---- main screen
   const h2 = await page.locator('h2').allInnerTexts();
-  check(h2.join('|') === '從哪裡出發?|去哪裡?', `two questions: ${h2.join(' / ')}`);
+  check(h2.join('|') === '去哪裡?|從哪裡出發?', `two questions, destination first: ${h2.join(' / ')}`);
   check(await page.locator('h2 .num, [data-when]').count() === 0, 'no numbers, no time question');
   check((await page.locator('[data-row=from]').innerText()).includes('家'), 'starts from 家');
   check(await page.locator('[data-row=to].empty').count() === 1, 'destination empty at start');

@@ -10,7 +10,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - 📍 你在: current suburb and street, following GPS while the main screen is open (「(位置未能更新)」 when there is no GPS, e.g. underground; tap to update).
 
 **Planning a trip**
-- Two questions, then 🔍 搜尋路線: 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點) and 去哪裡? (回家, any saved station, or 🔍 其他地點).
+- Two questions, then 🔍 搜尋路線: 去哪裡? (回家, any saved station, or 🔍 其他地點) and 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點; already set to 家).
 - The trip list starts at leave now; the time is changed on the list (see below).
 - 39 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place (English, or Chinese for known stations). A searched destination can be saved with ⭐ 加到常去地點.
 - Only public transport and walking — never cycling, driving or taxi legs.
@@ -42,6 +42,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.7.1 — 2026-11-13
+- Main screen asks 去哪裡? first, then 從哪裡出發? (already filled with 家). Going home is now two taps: 去哪裡, then 🏠 回家 at the top of the list.
 
 ### v1.7.0 — 2026-11-13
 - 🏠 回家 in the 去哪裡 list is always available and goes straight to the trip list. If the start is 家, it switches to 📍 現在位置 (home from where they are now); another chosen start is kept. 🚕 Uber at the bottom has home filled in as the destination.

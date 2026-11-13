@@ -124,8 +124,8 @@ In **⚙️ 設定** (hold for 2 seconds) you can add places (➕ 新增地點),
 
 1. Open **爸媽出行**.
 2. Answer two questions:
-   - **從哪裡出發?** (where from) — 🏠 家 is already selected. Tap it to choose 📍 現在位置 (where I am now), a station, or 🔍 其他地點.
    - **去哪裡?** (where to) — tap to choose a station or 🔍 其他地點. **🏠 回家** at the top goes straight to the trips home from where they are now (📍 現在位置), with 🚕 Uber for home at the bottom.
+   - **從哪裡出發?** (where from) — 🏠 家 is already selected. Tap it to choose 📍 現在位置 (where I am now), a station, or 🔍 其他地點.
 3. Tap **🔍 搜尋路線** (search routes). The list shows trips leaving **now**, earliest first.
 4. To see other times, stay on the list:
    - **◀ 早一點 / 遲一點 ▶** (earlier / later) move 30 minutes each tap. **⏱️ 現在** jumps back to now.

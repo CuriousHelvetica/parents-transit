@@ -615,6 +615,8 @@ function showPicker(kind) {
 }
 
 const SETTINGS_HOLD_MS = 2000;
+// 去哪裡 comes first: the start is already 家, so the destination is the one thing they must choose
+// (and 🏠 回家, at the top of its list, is then two taps from here).
 function showHome() {
   clearTimers();
   state.screen = 'home';
@@ -625,10 +627,10 @@ function showHome() {
       <div class="sub">現在 ${todayLine(now)}</div>
       <button class="herebox" id="here" aria-label="你在"></button>
     </div>
-    <h2>從哪裡出發?</h2>
-    <button class="choice" data-row="from">${choiceLabel(state.from)}<span class="chev">›</span></button>
     <h2>去哪裡?</h2>
     <button class="choice ${state.to ? '' : 'empty'}" data-row="to">${choiceLabel(state.to, '請選擇目的地')}<span class="chev">›</span></button>
+    <h2>從哪裡出發?</h2>
+    <button class="choice" data-row="from">${choiceLabel(state.from)}<span class="chev">›</span></button>
     <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
     <div class="bar"><button class="btn" data-reset-trip>↺ 重新開始</button></div>
     <button class="setlink" data-settings>⚙️ 設定<span>家人用:按住 2 秒</span></button>
