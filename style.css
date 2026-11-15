@@ -36,6 +36,11 @@ h2 { font-size: 24px; margin: 20px 0 8px; color: #333; }
 .sub { color: #555; font-size: 18px; }
 .en { color: #555; font-size: 1em; font-weight: normal; }
 button { font: inherit; color: inherit; border: none; cursor: pointer; }
+/* A slow or long press must still count as a tap: on iPhone it otherwise selects the label as text
+   (blue highlight, copy menu) and the press is lost. Applies to everything that is pressed. */
+button, a.btn, a.maplink, summary, .maplink.off {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
 
 .toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .toggle button {

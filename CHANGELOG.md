@@ -43,6 +43,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.8.1 — 2026-11-15
+- A slow or long press on a button now counts as a tap. On iPhone it used to select the button's label as text, and the press was lost until a second tap (noticed on the 主題 buttons, but it applied to every button). Button labels can no longer be selected.
+
 ### v1.8.0 — 2026-11-15
 - Two colour themes, chosen in 設定 → 主題 and saved on each phone. **主題 1** is new and the default: warm cream page, soft blue station tiles, green 回家, peach main buttons, delays and on-time shown as pills, in line with the app icon. **主題 2** is the look the app had until now. Colours only; nothing else changes.
 - Fixed: ← 返回 on the 新增地點 or 住址 page opened 設定 in delete mode (since v1.7.0).

@@ -50,6 +50,9 @@ and nothing that can be broken by a stray tap.
   dropped whenever the app goes to the background; the time picker ignores `step`, so the app uses `<select>`s;
   the first word of speech is clipped without a warm-up utterance; the system may restart the app after a
   phone call or a visit to another app.
+- **Long presses.** Older users press slowly. On iPhone a long press on selectable text starts a text selection
+  and the tap is lost, so everything that is pressed has `user-select: none` (`style.css`). Give any new
+  pressable element the same; the layout tests check it.
 - **Redrawing under a finger loses taps.** Lists and the countdown only re-render when the HTML actually changed,
   and update countdown text in place. Keep it that way.
 

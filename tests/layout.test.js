@@ -14,6 +14,19 @@ async function run(check, theme) {
   check(on === (theme === '1'), `主題 ${theme}: theme file ${theme === '1' ? 'on' : 'off'}`);
   await chooseTo(page, '寶活站');
   await search(page);
+  // Labels of things that are pressed can't be selected as text (a long press must still be a tap)
+  const sel = async (where) => {
+    const bad = await page.evaluate(() => [...document.querySelectorAll('button, a.btn, a.maplink, summary')]
+      .filter((e) => { const cs = getComputedStyle(e); return (cs.userSelect || cs.webkitUserSelect) !== 'none'; })
+      .map((e) => (e.textContent || '').trim().slice(0, 12)));
+    check(bad.length === 0, `主題 ${theme}, ${where}: button labels can't be selected as text${bad.length ? ` (selectable: ${bad.join(', ')})` : ''}`);
+  };
+  await sel('trip list');
+  await page.click('.card[data-j]'); await page.waitForSelector('.step'); await sel('trip details');
+  await page.click('[data-back]'); await page.click('[data-back]');
+  await openSettings(page); await sel('settings');
+  await page.click('[data-back]'); await sel('main screen');
+  await search(page);
   await page.waitForTimeout(1500);
   for (const width of [393, 375, 320]) {
     await page.setViewportSize({ width, height: 800 });
