@@ -127,6 +127,26 @@ module.exports = async (check) => {
   check(await page.evaluate(() => JSON.parse(localStorage.getItem(STORE_KEY)).places.length) === N, 'settings saved on the phone');
   await page.click('[data-reset]');
   check(await page.evaluate(() => settings.places.length) === N && await firstTwo() === 'Hurstville,Burwood', '還原預設: defaults back');
+  // 主題: 1 is the default; 2 is chosen here, shows at once, and is remembered when the app is opened again
+  const mainBtn = () => page.evaluate(() => { const b = document.querySelector('.btn.primary'); return b ? getComputedStyle(b).backgroundColor : ''; });
+  await page.click('[data-add]');   // a screen with a main (primary) button
+  check(await mainBtn() === 'rgb(251, 216, 193)', `主題 1 by default: peach main button (${await mainBtn()})`);
+  await page.click('[data-back]');
+  check(await page.locator('[data-grip]').count() > 0 && await page.locator('[data-del]').count() === 0, '← 返回 from 新增地點: 設定 in its normal mode, not delete mode');
+  check((await page.locator('[data-theme].on').innerText()) === '主題 1', '設定 shows 主題 1 selected');
+  await page.click('[data-theme="2"]');
+  check((await page.locator('[data-theme].on').innerText()) === '主題 2' && await page.evaluate(() => getComputedStyle(document.body).backgroundColor) === 'rgb(253, 246, 234)',
+    '主題 2: selected, page changes at once');
+  await page.click('[data-add]');
+  check(await mainBtn() === 'rgb(78, 110, 154)', `主題 2: blue main button (${await mainBtn()})`);
+  await page.reload(); await page.waitForTimeout(300);
+  check(await page.evaluate(() => document.getElementById('theme1').media) === 'not all' && await page.evaluate(() => getComputedStyle(document.body).backgroundColor) === 'rgb(253, 246, 234)',
+    '主題 2 remembered after reopening the app');
+  await openSettings(page);
+  await page.click('[data-reset]');
+  check((await page.locator('[data-theme].on').innerText()) === '主題 2', '還原預設 leaves the theme alone');
+  await page.click('[data-theme="1"]');
+  check(await page.evaluate(() => getComputedStyle(document.body).backgroundColor) === 'rgb(253, 247, 233)' && (await page.locator('[data-theme].on').innerText()) === '主題 1', 'back to 主題 1');
   await page.click('[data-testvoice]');
   check((await page.evaluate(() => window.__said)).some((x) => x.includes('二號月台')), '試聽廣東話 speaks');
   await page.click('[data-back]');

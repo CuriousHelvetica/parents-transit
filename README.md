@@ -16,6 +16,7 @@ A home-screen web app for getting around Sydney by train and bus. Big buttons, T
 | File | What it is |
 |---|---|
 | `index.html`, `app.js`, `style.css` | The web app (hosted on GitHub Pages) |
+| `theme-sunrise.css` | Colours of 主題 1 (the default), layered on `style.css`; switched off for 主題 2 |
 | `names.js` | Chinese names for stations and the default places |
 | `config.js` | Address of your Cloudflare Worker |
 | `worker/worker.js` | Cloudflare Worker that holds the API key, passes requests to Transport for NSW, translates notices and makes reminder calendar files |

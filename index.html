@@ -12,6 +12,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-heart2-180.png">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme-sunrise.css" id="theme1">
+<script>
+// 主題 2 chosen on this phone: switch the 主題 1 colours off before anything is drawn (no flash)
+try { if (localStorage.getItem('parents-transit-theme') === '2') document.getElementById('theme1').media = 'not all'; } catch (e) {}
+</script>
 </head>
 <body>
 <main id="app"></main>

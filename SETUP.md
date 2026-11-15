@@ -115,6 +115,9 @@ A button at the bottom of the trip list (any time, also for planned trips, as a 
 - Check **Settings → Uber → Location → While Using the App** so Uber can find them.
 - Worth doing one practice booking together, including confirming the pickup pin at home.
 
+### Colour theme (主題)
+In **⚙️ 設定** (hold for 2 seconds) → **主題**: **主題 1** (the default: cream, soft blue tiles, peach buttons) or **主題 2** (the earlier look). The choice is saved on that phone only, and 還原預設 doesn't change it.
+
 ### Edit places
 In **⚙️ 設定** (hold for 2 seconds) you can add places (➕ 新增地點), reorder them by dragging the **☰** handle, or delete them: **🗑️ 刪除地點…** switches to delete mode, **✓ 完成** leaves it. When adding, you can type a Chinese name for the button.
 

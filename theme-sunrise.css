@@ -1,0 +1,50 @@
+/* 主題 1 (the default): warm cream, soft blue tiles, peach main button, in line with the app icon.
+   Colours only, layered on top of style.css (主題 2). index.html switches this file on or off; the choice
+   is made in 設定 → 主題 and saved on the phone. Every screen must look right with and without this file. */
+:root{--cream:#FDF7E9;--slate:#3D5F8C;--peach:#E6EDF6;--sage:#2F6A55;--beige:#EDE2CC;
+--bg:#FDF7E9;--primary:#3D5F8C;--primary-soft:#E6EDF6;--primary-en:#3E4F68;--home:#C8E0C7;--home-en:#3D5A40;
+--ontime:#1D5C70;--border:#818897;--divider:#EDE2CC;--notice-bg:#F6EEDD;--notice-border:#688AB5}
+body{color:#1F2B3B;background:#FDF7E9}
+h1{letter-spacing:.01em;} h2{color:#444E5F;font-weight:700}
+.sub,.en,.small,.msg,.here-street,.offnote,.route-en,h1.title .en,details.notices summary,details.gone summary,.gone-row .chev,.setlink{color:#444E5F}
+.est,.track-status,.stale div,.step .detail,.notice{color:#444E5F}
+.here-debug,.version,button.choice .placeholder,li.first{color:#5A6473}
+.hdr,.card{background:#FFFDF8;box-shadow:0 1px 2px rgba(60,50,40,.05), 0 3px 10px rgba(60,50,40,.04);border:1px solid #EDE2CC}
+button.herebox{border-top-color:#EDE2CC} .here-line b{color:#3D5F8C}
+.toggle button,.btn,.tb-step,.tb-mid,.tb-change,.result,.maplink,input[type=text],input[type=time],input[type=date],.timepick select,button.choice{background:#FFFDF8;color:#1F2B3B}
+.toggle button,.btn{border-color:#818897}
+.toggle button.on,.tb-mid.on{background:#DCE5F2;border-color:#688AB5;color:#1C2E4A}
+.tb-step,.tb-mid,.tb-change,.maplink,button.btn.track,.btn.other,a.btn.uber,button.choice{border-color:#688AB5;color:#3D5F8C}
+button.choice{color:#1F2B3B} button.choice .chev,.back,details.stops summary,li.bell,.whenx,.leave .in,.version a,.row .grip,.track-big,.btn.other .en{color:#3D5F8C}
+.tb-step:disabled{border-color:#EDE2CC;color:#5A6473;opacity:.6}
+.place{background:#DCE5F2;color:#1C2E4A;border:2px solid #688AB5} .place .en{color:#3E4F68} .place.here{background:#DCE5F2}
+.place.home{background:#C8E0C7;color:#1E3A22;border-color:#639366} .place.home .en{color:#3D5A40}
+.btn.primary{background:#FBD8C1;color:#4A2414;border-color:#AD7E64}
+.btn.danger{color:#9A2E2A}
+.late{color:#9A2E2A} .tight{color:#6E5200} .ontime,.boarded,li.getoff{color:#1D5C70}
+.leave .in.soon{color:#6E5200} .leave.gone{color:#444E5F}
+.card .sub.late,.card .sub.ontime,.step .late{display:inline-block;padding:1px 10px;border-radius:999px;margin-top:4px}
+.card .sub.late,.step .late{background:#FBE1DC} .card .sub.ontime{background:#DCEEF2}
+.badge.m-train{background:#F6891F;color:#14181D;box-shadow:0 0 0 2px #FFFDF8}
+.badge.m-metro{background:#168388;color:#FFFFFF;box-shadow:0 0 0 2px #FFFDF8}
+.badge.m-bus{background:#00B5EF;color:#14181D;box-shadow:0 0 0 2px #FFFDF8}
+.badge.m-ferry{background:#5AB031;color:#14181D;box-shadow:0 0 0 2px #FFFDF8}
+.badge.m-lightrail{background:#EE343F;color:#14181D;box-shadow:0 0 0 2px #FFFDF8}
+.badge.m-coach{background:#732A82;color:#FFFFFF;box-shadow:0 0 0 2px #FFFDF8}
+.badge.m-walk,.badge.m-other{background:#E8E8EA;color:#2E3742}
+.step{border-bottom-color:#EDE2CC}
+.notice{background:#F6EEDD;border-left-color:#688AB5}
+.notice.severe,.delbar{background:#FBE1DC;border-left-color:#9A2E2A;color:#1F2B3B}
+.err{background:#FBE1DC;color:#9A2E2A}
+.stale,.nogps,.other-service{background:#FAEDCB;border-left-color:#6E5200;color:#1F2B3B}
+.gone-row{background:#F6EEDD;border-color:#818897}
+.row{background:#FDF7E9;border-bottom-color:#EDE2CC} .row button{background:#E6EDF6;color:#3D5F8C}
+.row .del,button.oops{background:#9A2E2A;color:#fff}
+.setlink::before{background:#EDE2CC}
+ol.track-list li.done{color:#5A6473}
+body.alert-bell .track-big{color:#9A2E2A}
+@keyframes flash{from{background:#FDF7E9}to{background:#F8C6AE}}
+/* Arrival alert stays deep on purpose (app forces white text there) */
+body.alert-off{background:#2F6A55}
+body.alert-off .btn.next{background:#FFFDF8}
+body.alert-off main .btn.next,body.alert-off main .btn.next *{color:#2F6A55 !important}

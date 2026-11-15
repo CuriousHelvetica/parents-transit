@@ -3,6 +3,17 @@
 // ---------- Storage (everything personal stays on this phone) ----------
 const STORE_KEY = 'parents-transit-v1';
 const TR_KEY = 'parents-transit-translations-v3';
+// Colour theme, chosen in 設定 and saved on the phone: '1' (default; theme-sunrise.css on top of style.css)
+// or '2' (style.css alone). Kept apart from the other settings, so 還原預設 doesn't change it.
+const THEME_KEY = 'parents-transit-theme';
+function currentTheme() {
+  try { return localStorage.getItem(THEME_KEY) === '2' ? '2' : '1'; } catch (e) { return '1'; }
+}
+function applyTheme(t) {
+  storeSet(THEME_KEY, t);
+  const link = document.getElementById('theme1');
+  if (link) link.media = t === '2' ? 'not all' : 'all';
+}
 // ⏰ 提醒我 (calendar reminder) is hidden for now; set to true to bring it back (button + 設定 section).
 const FEATURE_REMINDER = false;
 
@@ -1747,6 +1758,7 @@ function remind(j, steps) {
 function showSettings(deleting = false, keepScroll = false) {
   clearTimers();
   state.screen = 'settings';
+  const shownTheme = currentTheme();
   const rows = settings.places.map((p, i) => `<div class="row" data-i="${i}">
       <div class="grow">${esc(p.zh || p.en)} <span class="en">${esc(p.en || '')}</span></div>
       ${deleting ? `<button class="del" data-del="${i}">刪除</button>`
@@ -1764,6 +1776,9 @@ function showSettings(deleting = false, keepScroll = false) {
     ${FEATURE_REMINDER ? `<h2>出門提醒</h2>
     <div class="toggle three">${[5, 10, 15].map((n) =>
       `<button data-before="${n}" class="${settings.remindBefore === n ? 'on' : ''}">提前 ${n} 分鐘</button>`).join('')}</div>` : ''}
+    <h2>主題</h2>
+    <div class="toggle">${['1', '2'].map((t) =>
+      `<button data-theme="${t}" class="${shownTheme === t ? 'on' : ''}">主題 ${t}</button>`).join('')}</div>
     <h2>朗讀</h2>
     <div class="bar"><button class="btn" data-testvoice>🔊 試聽廣東話</button></div>
     <div class="small">如果不是廣東話,請參閱設定說明。</div>
@@ -1772,6 +1787,7 @@ function showSettings(deleting = false, keepScroll = false) {
       <a href="${esc(CHANGELOG_URL)}" target="_blank" rel="noopener">更新紀錄</a><br>
       地址資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>`, keepScroll);
   const on = (sel, fn) => { const el = $app.querySelector(sel); if (el) el.onclick = fn; };
+  $app.querySelectorAll('[data-theme]').forEach((b) => b.onclick = () => { applyTheme(b.dataset.theme); showSettings(deleting, true); });
   on('[data-back]', showHome);
   on('[data-home]', () => showAddPlace(true));
   on('[data-add]', () => showAddPlace(false));
@@ -1910,7 +1926,7 @@ function showAddPlace(isHome) {
     <div class="bar"><input type="text" id="q" placeholder="e.g. 1 Walker St Rhodes" autocomplete="off"></div>
     <div class="bar"><button class="btn primary" data-search>🔍 搜尋</button></div>
     <div id="results"></div>`);
-  $app.querySelector('[data-back]').onclick = showSettings;
+  $app.querySelector('[data-back]').onclick = () => showSettings();   // not the click event as its first argument
   const input = $app.querySelector('#q');
   const go = async () => {
     const box = $app.querySelector('#results');

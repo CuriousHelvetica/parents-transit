@@ -1,10 +1,17 @@
 // Every screen fits the phone: no sideways scrolling at 393 px (iPhone 14 Pro), 375 px and 320 px,
-// and the time bar buttons stay inside the screen.
+// and the time bar buttons stay inside the screen. Run once for each colour theme.
 const { open, chooseTo, search, noOverflow, openSettings, STOPS } = require('./helpers');
 
 module.exports = async (check) => {
+  for (const theme of ['1', '2']) await run(check, theme);
+};
+
+async function run(check, theme) {
   const t = await open({ api: { notices: [{ subtitle: 'Trackwork at Redfern Station tonight', priority: 'high' }, { subtitle: 'Lift upgrade' }] } });
   const { page } = t;
+  if (theme === '2') { await page.evaluate(() => localStorage.setItem('parents-transit-theme', '2')); await page.reload(); }
+  const on = await page.evaluate(() => document.getElementById('theme1').media !== 'not all');
+  check(on === (theme === '1'), `主題 ${theme}: theme file ${theme === '1' ? 'on' : 'off'}`);
   await chooseTo(page, '寶活站');
   await search(page);
   await page.waitForTimeout(1500);
@@ -27,7 +34,7 @@ module.exports = async (check) => {
     if (width === 393) {
       await page.setViewportSize({ width, height: 759 });
       const bottom = await page.evaluate(() => document.querySelector('[data-confirm]').getBoundingClientRect().bottom);
-      check(bottom <= 759, `改時間及日期: ✓ 確定 visible without scrolling on an iPhone 14 Pro (bottom at ${Math.round(bottom)} of 759)`);
+      check(bottom <= 759, `主題 ${theme}, 改時間及日期: ✓ 確定 visible without scrolling on an iPhone 14 Pro (bottom at ${Math.round(bottom)} of 759)`);
       await page.setViewportSize({ width, height: 800 });
     }
     await page.click('[data-cancel]'); await page.waitForSelector('.card[data-j]');
@@ -36,8 +43,8 @@ module.exports = async (check) => {
     await t.ctx.setGeolocation({ latitude: STOPS[0][1][0], longitude: STOPS[0][1][1], accuracy: 10 });
     await page.click('[data-track]'); await look('stop countdown');
     await page.click('[data-back]'); await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
-    check(!bad.length, `${width} px: every screen fits${bad.length ? ` (too wide: ${bad.join(', ')})` : ''}`);
+    check(!bad.length, `主題 ${theme}, ${width} px: every screen fits${bad.length ? ` (too wide: ${bad.join(', ')})` : ''}`);
   }
-  check(t.errors.length === 0, `no page errors (${t.errors.join(' | ')})`);
+  check(t.errors.length === 0, `主題 ${theme}: no page errors (${t.errors.join(' | ')})`);
   await t.close();
-};
+}

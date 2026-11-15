@@ -33,7 +33,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
   - 📍 上車後按這裡:還有幾個站: GPS countdown of stops; whole screen flashes 「🔔 下一站下車 請按鐘!」 when the next stop is theirs and turns green 「📍 到站,請下車!」 on arrival. Keeps the screen on (iOS 18.4+), adapts to GPS accuracy, catches up after GPS gaps. Without a GPS signal (tunnels) or with location switched off, a yellow warning shows and the count carries on by the timetable, marked 「大約」. At the stop, a 「下一程」 button continues with the next ride. Shows 「✓ 已上車」 once the vehicle leaves; if they caught an earlier or later service on the same line, the stop times follow the real departure, and a yellow 「⚠️ 可能不是原定班次」 note asks them to check the display shows their stop.
 
 **Settings (⚙️ 設定)**
-- Opens after holding ⚙️ 設定 for 2 seconds. Home address, frequent places (add, drag ☰ to reorder, delete in a separate mode), Cantonese voice test, restore defaults. (Reminder lead time hidden with ⏰ 提醒我.)
+- Opens after holding ⚙️ 設定 for 2 seconds. Colour theme (主題 1 or 主題 2), home address, frequent places (add, drag ☰ to reorder, delete in a separate mode), Cantonese voice test, restore defaults. (Reminder lead time hidden with ⏰ 提醒我.)
 - Everything personal is stored only on the phone.
 
 ## History
@@ -42,6 +42,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.8.0 — 2026-11-15
+- Two colour themes, chosen in 設定 → 主題 and saved on each phone. **主題 1** is new and the default: warm cream page, soft blue station tiles, green 回家, peach main buttons, delays and on-time shown as pills, in line with the app icon. **主題 2** is the look the app had until now. Colours only; nothing else changes.
+- Fixed: ← 返回 on the 新增地點 or 住址 page opened 設定 in delete mode (since v1.7.0).
 
 ### v1.7.1 — 2026-11-13
 - Main screen asks 去哪裡? first, then 從哪裡出發? (already filled with 家). Going home is now two taps: 去哪裡, then 🏠 回家 at the top of the list.

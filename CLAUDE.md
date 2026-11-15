@@ -15,7 +15,7 @@ and nothing that can be broken by a stray tap.
 - App: static files on GitHub Pages, `https://curioushelvetica.github.io/parents-transit/`
 - Data: Transport for NSW Trip Planner API, through a Cloudflare Worker (`worker/worker.js`) that holds the API key
 - Translation of service notices: Cloudflare Workers AI, in the same Worker
-- No build step. `index.html` loads `config.js`, `version.js`, `names.js`, `app.js`.
+- No build step. `index.html` loads `style.css`, `theme-sunrise.css`, then `config.js`, `version.js`, `names.js`, `app.js`.
 
 ## How the owner wants to work
 
@@ -80,6 +80,11 @@ and nothing that can be broken by a stray tap.
   the reason before that, so nothing seems to vanish. Uber is always available.
 - **Service notices:** important ones stay open, routine ones fold away; station names are protected from the
   AI translation and shown as 中文 + English; notice HTML is parsed safely.
+- **Two colour themes** (v1.8.0), chosen in 設定 → 主題 and saved per phone. 主題 1 (default) is
+  `theme-sunrise.css` layered on `style.css`; 主題 2 is `style.css` alone. The owner chose 主題 1 to match the
+  app icon, with a flat cream page, the system font and a pale peach main button (their choice, knowing it is
+  quieter). **Any new screen or element must be styled and checked in both themes**; the layout tests run under
+  both. If 主題 2 falls out of use, fold 主題 1 into `style.css` and remove the switch.
 - **設定 is for the owner:** it opens after a 2-second hold, reordering is by drag handle, and deleting is a
   separate mode.
 - **⏰ 提醒我 is hidden** (`FEATURE_REMINDER = false`): the calendar-file flow was too clumsy. Code is kept.
