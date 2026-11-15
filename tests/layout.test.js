@@ -14,6 +14,10 @@ async function run(check, theme) {
   check(on === (theme === '1'), `主題 ${theme}: theme file ${theme === '1' ? 'on' : 'off'}`);
   await chooseTo(page, '寶活站');
   await search(page);
+  // Double-tap zoom is off everywhere (pinch zoom is left alone)
+  check(await page.evaluate(() => getComputedStyle(document.documentElement).touchAction === 'manipulation' && getComputedStyle(document.body).touchAction === 'manipulation'),
+    `主題 ${theme}: double-tap zoom switched off`);
+  check(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1(\D|$)/.test(await page.evaluate(() => document.querySelector('meta[name=viewport]').content)), `主題 ${theme}: pinch zoom still allowed`);
   // Labels of things that are pressed can't be selected as text (a long press must still be a tap)
   const sel = async (where) => {
     const bad = await page.evaluate(() => [...document.querySelectorAll('button, a.btn, a.maplink, summary')]

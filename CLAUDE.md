@@ -53,6 +53,8 @@ and nothing that can be broken by a stray tap.
 - **Long presses.** Older users press slowly. On iPhone a long press on selectable text starts a text selection
   and the tap is lost, so everything that is pressed has `user-select: none` (`style.css`). Give any new
   pressable element the same; the layout tests check it.
+- **No double-tap zoom.** `touch-action: manipulation` on `html, body` stops accidental zooming on a quick second
+  tap; pinch zoom is deliberately kept (don't add `user-scalable=no`).
 - **Redrawing under a finger loses taps.** Lists and the countdown only re-render when the HTML actually changed,
   and update countdown text in place. Keep it that way.
 

@@ -21,6 +21,8 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
+/* No double-tap zoom anywhere (a quick second tap zoomed the trip pages by accident); pinch zoom still works */
+html, body { touch-action: manipulation; }
 body {
   margin: 0;
   font-family: -apple-system, "PingFang HK", "PingFang TC", "Heiti TC", sans-serif;

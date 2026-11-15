@@ -43,6 +43,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.8.2 — 2026-11-15
+- Double-tapping no longer zooms the page (it happened by accident on the trip pages). Pinch zoom with two fingers still works.
+
 ### v1.8.1 — 2026-11-15
 - A slow or long press on a button now counts as a tap. On iPhone it used to select the button's label as text, and the press was lost until a second tap (noticed on the 主題 buttons, but it applied to every button). Button labels can no longer be selected.
 
