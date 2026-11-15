@@ -21,6 +21,8 @@ A home-screen web app for getting around Sydney by train and bus. Big buttons, T
 | `config.js` | Address of your Cloudflare Worker |
 | `worker/worker.js` | Cloudflare Worker that holds the API key, passes requests to Transport for NSW, translates notices and makes reminder calendar files |
 | `tests/`, `package.json` | Automated tests (not part of the app) |
+| `docs/` | Project notes: design goals and rules, the decision log, how the code works, working preferences, open items |
+| `CLAUDE.md` | Short hand-over notes, read automatically by Claude Code |
 
 Data: [Transport for NSW Open Data](https://opendata.transport.nsw.gov.au) Trip Planner API.
 

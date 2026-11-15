@@ -3,6 +3,11 @@
 Read this first. It holds what the code, CHANGELOG.md and SETUP.md don't: how the owner wants to work,
 why things are the way they are, and what is still open.
 
+This is the short version. The full notes are in `docs/`: `DESIGN.md` (goals and rules), `DECISIONS.md`
+(what was chosen and why), `ARCHITECTURE.md` (how the code works), `HOW-WE-WORK.md` (working preferences)
+and `OPEN-ITEMS.md` (unverified and parked items, real-phone checklist). Read the relevant one before a
+change in its area, and keep them in step with the app.
+
 ## What this is
 
 爸媽出行 is a home-screen web app that plans Sydney public transport trips in Traditional Chinese.
