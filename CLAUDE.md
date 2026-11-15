@@ -55,7 +55,7 @@ and nothing that can be broken by a stray tap.
   pressable element the same; the layout tests check it.
 - **No double-tap zoom.** `touch-action: manipulation` on every element (`style.css`; on `html, body` alone it
   didn't work on iPhone) plus a guard in `app.js` that cancels a quick second tap on plain text. Pinch zoom is
-  deliberately kept (don't add `user-scalable=no`). Whether this stops it on iPhone is confirmed only by the owner.
+  deliberately kept (don't add `user-scalable=no`). The owner confirmed on their iPhone that v1.8.3 stops the zoom.
 - **Redrawing under a finger loses taps.** Lists and the countdown only re-render when the HTML actually changed,
   and update countdown text in place. Keep it that way.
 
