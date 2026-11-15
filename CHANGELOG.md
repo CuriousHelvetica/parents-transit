@@ -43,6 +43,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.8.3 — 2026-11-15
+- Double-tap zoom, second attempt (v1.8.2 didn't stop it on iPhone): the no-zoom rule now applies to every element, and a quick second tap on plain text is ignored so it can't start a zoom. Quick repeated taps on buttons still work; pinch zoom still works.
+
 ### v1.8.2 — 2026-11-15
 - Double-tapping no longer zooms the page (it happened by accident on the trip pages). Pinch zoom with two fingers still works.
 

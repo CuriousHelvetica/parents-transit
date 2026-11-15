@@ -17,6 +17,19 @@ async function run(check, theme) {
   // Double-tap zoom is off everywhere (pinch zoom is left alone)
   check(await page.evaluate(() => getComputedStyle(document.documentElement).touchAction === 'manipulation' && getComputedStyle(document.body).touchAction === 'manipulation'),
     `主題 ${theme}: double-tap zoom switched off`);
+  // Second safeguard: a quick second tap on plain text is cancelled; taps on buttons never are
+  const taps = await page.evaluate(() => {
+    const tap = (el) => {
+      const touch = new Touch({ identifier: 1, target: el, clientX: 10, clientY: 10 });
+      const ev = new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [], changedTouches: [touch] });
+      el.dispatchEvent(ev); return ev.defaultPrevented;
+    };
+    const text = document.querySelector('.whenx') || document.querySelector('h1');
+    const btn = document.querySelector('[data-step="1"]');
+    return { first: tap(text), second: tap(text), btn1: tap(btn), btn2: tap(btn) };
+  });
+  check(!taps.first && taps.second, `主題 ${theme}: quick second tap on text cancelled (no zoom)`);
+  check(!taps.btn1 && !taps.btn2, `主題 ${theme}: quick repeated taps on a button still go through`);
   check(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1(\D|$)/.test(await page.evaluate(() => document.querySelector('meta[name=viewport]').content)), `主題 ${theme}: pinch zoom still allowed`);
   // Labels of things that are pressed can't be selected as text (a long press must still be a tap)
   const sel = async (where) => {

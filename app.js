@@ -1962,6 +1962,20 @@ function showAddPlace(isHome) {
   input.focus();
 }
 
+// No double-tap zoom: a second tap on plain text within DOUBLE_TAP_MS of the first is ignored, so iPhone
+// can't treat the pair as a zoom gesture. Buttons, links, folds and form fields are left alone, so quick
+// repeated taps on them (e.g. ◀ ▶) still work. Pinch zoom with two fingers is unaffected.
+const DOUBLE_TAP_MS = 350;
+let lastTextTap = 0;
+document.addEventListener('touchend', (e) => {
+  if (e.touches.length || e.changedTouches.length !== 1) return;   // pinch or other multi-finger gestures
+  const t = e.target instanceof Element ? e.target : null;
+  if (t && t.closest('button, a, summary, input, select, textarea, label, [data-grip]')) { lastTextTap = 0; return; }
+  const now = Date.now();
+  if (now - lastTextTap < DOUBLE_TAP_MS) { e.preventDefault(); lastTextTap = 0; return; }
+  lastTextTap = now;
+}, { passive: false });
+
 // Safety net: if something unexpected goes wrong, offer a clear way back instead of a frozen screen.
 function showOops() {
   if (document.getElementById('oops')) return;
