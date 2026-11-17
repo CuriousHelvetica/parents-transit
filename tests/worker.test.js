@@ -104,70 +104,109 @@ module.exports = async (check) => {
   res = await w.fetch(new Request('https://w.example/tp/trip?x=1'), { ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' });
   check(res.status === 403, 'trip planner without the app origin: Forbidden');
 
-  // ---- /place: Chinese place name -> English search words (AI) -> Transport for NSW -> AI picks and names
+  // ---- /place: one AI step (what was meant, English + Chinese names) -> Transport for NSW -> best real match
   const realFetch = global.fetch;
   const tfnswAsked = [];
+  // Real-looking answers (from the live search, November 2026)
   const LOCS = {
-    'Sydney Airport': [
-      { id: 'h1', name: 'Holiday Inn Sydney Airport, Mascot', type: 'poi' },
-      { id: 't1', name: 'Sydney Airport - T1 International (SYD), Mascot', type: 'poi' },
-      { id: 't2', name: 'Sydney Airport - T2 Domestic (SYD), Mascot', type: 'poi' },
+    'University of Sydney': [
+      { id: 'b1', name: 'University of Sydney Library, Brownlow Hill', type: 'stop', modes: [5, 11] },
+      { id: 'b2', name: 'Werombi Rd opp The University of Sydney Library, Brownlow Hill', type: 'stop', modes: [5, 11] },
+      { id: 'u1', name: 'The University of Sydney, Camperdown', type: 'poi' },
+      { id: 'b3', name: 'University of Sydney Main Gate, Parramatta Rd, Camperdown', type: 'stop', modes: [5, 11] },
     ],
-    'Domestic Airport Station': [{ id: 's1', name: 'Domestic Airport Station, Mascot', type: 'stop', modes: [1] },
-      { id: 't2', name: 'Sydney Airport - T2 Domestic (SYD), Mascot', type: 'poi' }],
+    'Darling Harbour': [
+      { id: 'h1', name: 'Holiday Inn Darling Harbour, Haymarket', type: 'poi' },
+      { id: 'd1', name: 'Darling Harbour, Sydney', type: 'poi' },
+      { id: 'd2', name: 'Darling Harbour, King Street Wharf, Sydney', type: 'stop', modes: [9] },
+    ],
+    'Paddys Markets': [{ id: 'p1', name: "Paddy's Markets Light Rail, Haymarket", type: 'stop', modes: [4] }],
+    'Cabramatta': [{ id: 's1', name: 'Cabramatta Rd, Mosman', type: 'street' }, { id: 's2', name: 'Cabramatta', type: 'suburb' }],
+    'Sydney Fish Market': [{ id: 'x1', name: 'Sydney Market Plaza, Homebush West', type: 'poi', isBest: true }],
   };
   global.fetch = async (url, init) => {
-    const u = new URL(url);
-    const term = u.searchParams.get('name_sf');
+    const term = new URL(url).searchParams.get('name_sf');
     tfnswAsked.push({ term, key: init && init.headers && init.headers.Authorization });
     if (term === 'Broken') return new Response('', { status: 500 });
     return new Response(JSON.stringify({ locations: LOCS[term] || [] }), { headers: { 'Content-Type': 'application/json' } });
   };
-  const placeAI = (pick) => fakeAI({ answer: (model, user) => (user.startsWith('Typed:') ? pick(user) : JSON.stringify({ terms: ['Sydney Airport', 'Domestic Airport Station'] })) });
-  const askPlace = (worker, env, text, origin = ORIGIN) => worker.fetch(
-    new Request(`https://w.example/place?text=${encodeURIComponent(text)}`, { headers: origin ? { Origin: origin } : {} }), env);
-  const penv = (ai) => ({ AI: ai, ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' });
+  const said = (places) => fakeAI({ answer: () => `Sure! ${JSON.stringify({ places })}` });
+  const askPlace = (worker, env, text, origin = ORIGIN, extra = '') => worker.fetch(
+    new Request(`https://w.example/place?text=${encodeURIComponent(text)}${extra}`, { headers: origin ? { Origin: origin } : {} }), env);
+  const penv = (ai, more = {}) => ({ AI: ai, ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k', ...more });
 
   w = await loadWorker();
-  ai = placeAI((user) => `Here: {"picks":[{"n":3,"zh":"悉尼國內機場 T2","kind":"airport"},{"n":2,"zh":"國際機場","kind":"airport"},{"n":99,"zh":"假","kind":"airport"},{"n":4,"zh":"國內機場站","kind":"spaceship"}]}`);
-  res = await askPlace(w, penv(ai), '雪梨機場');
+  ai = said([{ en: 'University of Sydney', zh: '悉尼大學', kind: 'university' }]);
+  res = await askPlace(w, penv(ai), '雪梨大學');
   body = await res.json();
-  check(ai.calls[0].user.startsWith('悉尼機場'), '/place: 雪梨 is passed to the AI as 悉尼');
-  check(tfnswAsked.map((x) => x.term).join() === 'Sydney Airport,Domestic Airport Station' && tfnswAsked.every((x) => x.key === 'apikey k'),
-    `/place: each English term looked up with the key (${tfnswAsked.map((x) => x.term).join(', ')})`);
-  check(ai.calls[1].user.includes('Typed: 雪梨機場') && (ai.calls[1].user.match(/Sydney Airport - T2/g) || []).length === 1,
-    '/place: the AI chooses from the places found, each listed once');
-  check(res.status === 200 && body.places.map((p) => p.id).join() === 't2,t1,s1',
-    `/place: AI's order kept; a number that wasn't in the list is ignored (${body.places.map((p) => p.id).join()})`);
-  check(body.places[0].zh === '悉尼國內機場 T2' && body.places[0].kind === 'airport' && body.places[0].name.includes('T2'),
-    '/place: places keep Transport for NSW details plus zh and kind');
-  check(body.places[2].kind === 'other', '/place: an unknown kind becomes "other"');
+  check(ai.calls.length === 1 && ai.calls[0].model === '@cf/meta/llama-3.3-70b-instruct-fp8-fast', `/place: one AI call, fast model first (${ai.calls.map((c) => c.model).join()})`);
+  check(ai.calls[0].user.startsWith('悉尼大學'), '/place: 雪梨 is passed to the AI as 悉尼');
+  check(res.status === 200 && body.places.length === 1 && body.places[0].id === 'u1' && body.places[0].zh === '悉尼大學' && body.places[0].kind === 'university',
+    `/place: the Camperdown campus, not the Brownlow Hill bus stops listed first (${body.places.map((p) => p.name).join()})`);
+  check(tfnswAsked.length === 1 && tfnswAsked[0].key === 'apikey k', '/place: looked up with the key');
   const k = ai.calls.length;
-  await askPlace(w, penv(ai), '雪梨機場');
+  await askPlace(w, penv(ai), '雪梨大學');
   check(ai.calls.length === k, '/place: same text again: answered from memory');
 
-  // The AI chooses nothing: nothing shown (not the hotel)
+  // Several meanings, looked up together: each keeps its best real match; hotels, streets and wrong places never
   w = await loadWorker();
-  ai = placeAI(() => '{"picks":[]}');
-  body = await (await askPlace(w, penv(ai), '機場酒店')).json();
-  check(body.places.length === 0, '/place: AI says none fit: no places');
+  tfnswAsked.length = 0;
+  ai = said([{ en: 'Darling Harbour', zh: '情人港', kind: 'park' }, { en: 'Paddys Markets', zh: '派迪市場', kind: 'spaceship' },
+    { en: 'Cabramatta', zh: '卡市', kind: 'suburb' }, { en: 'Sydney Fish Market', zh: '魚市場', kind: 'market' }]);
+  body = await (await askPlace(w, penv(ai), '情人港')).json();
+  check(body.places.map((p) => p.id).join() === 'd1,p1,s2',
+    `/place: Darling Harbour itself (not the hotel), the light rail stop, the suburb (not the street); at most 3 meanings (${body.places.map((p) => p.name).join(' / ')})`);
+  check(tfnswAsked.length === 3, `/place: one lookup per meaning, at most 3 (${tfnswAsked.length})`);
+  check(body.places[1].kind === 'other', '/place: an unknown kind becomes "other"');
 
-  // The choosing step fails: Transport for NSW's own order, no Chinese names
+  // A meaning with no matching name: nothing, not Transport for NSW's "best" guess
   w = await loadWorker();
-  ai = placeAI(() => 'sorry');
-  body = await (await askPlace(w, penv(ai), '機場')).json();
-  check(body.places.length === 4 && body.places[0].id === 'h1' && body.places.every((p) => p.zh === ''),
-    '/place: choosing step fails: first four places as found, without Chinese names');
+  ai = said([{ en: 'Sydney Fish Market', zh: '魚市場', kind: 'market' }]);
+  body = await (await askPlace(w, penv(ai), '魚市場')).json();
+  check(body.places.length === 0, '/place: no real match: no places (not Sydney Market Plaza in Homebush)');
 
-  // Translation fails, Transport for NSW fails, wrong origin, missing settings
+  // The fast model fails or is too slow: the next one answers, and goes first next time
+  w = await loadWorker();
+  ai = fakeAI({ retired: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast'], answer: () => '{"places":[{"en":"University of Sydney","zh":"悉尼大學","kind":"university"}]}' });
+  body = await (await askPlace(w, penv(ai), '悉尼大學', ORIGIN, '&debug=1')).json();
+  check(body.places.length === 1 && ai.calls.map((c) => c.model).join() === '@cf/meta/llama-3.3-70b-instruct-fp8-fast,@cf/google/gemma-4-26b-a4b-it',
+    '/place: fast model retired: the next one answers');
+  check(body.debug && body.debug.steps.some((s) => s.error && /410/.test(s.error)) && body.debug.steps.some((s) => s.raw && s.model.includes('gemma'))
+    && typeof body.debug.ms === 'number' && body.debug.steps.some((s) => s.lookup),
+    '/place debug=1: models tried, errors, raw answer, lookups and time');
+  await askPlace(w, penv(ai), '悉尼大學二');
+  check(ai.calls[ai.calls.length - 1].model.includes('gemma') && ai.calls.length === 3, '/place: the working model is tried first next time');
+  body = await (await askPlace(w, penv(ai), '悉尼大學')).json();
+  check(!body.debug, '/place: no debug details unless asked');
+
+  // PLACE_MODEL setting goes first
+  w = await loadWorker();
+  ai = said([{ en: 'University of Sydney', zh: '悉尼大學', kind: 'university' }]);
+  await askPlace(w, penv(ai, { PLACE_MODEL: '@cf/new/fast' }), '悉尼大學');
+  check(ai.calls[0].model === '@cf/new/fast', 'PLACE_MODEL tried first');
+  res = await w.fetch(new Request('https://w.example/status'), { AI: ai, PLACE_MODEL: '@cf/new/fast' });
+  check((await res.json()).placeModels[0] === '@cf/new/fast', '/status lists the place models too');
+
+  // A model that never answers is given up on (12 s) and the next one used
+  w = await loadWorker();
+  const slowAI = { calls: [], async run(model) { this.calls.push(model); if (model.includes('llama')) return new Promise(() => {});
+    return { response: '{"places":[{"en":"University of Sydney","zh":"悉尼大學","kind":"university"}]}' }; } };
+  const realSetTimeout = global.setTimeout;
+  global.setTimeout = (fn, ms, ...a) => realSetTimeout(fn, ms >= 12000 ? 10 : ms, ...a);   // don't really wait 12 s
+  body = await (await askPlace(w, penv(slowAI), '悉尼大學')).json();
+  global.setTimeout = realSetTimeout;
+  check(body.places.length === 1 && slowAI.calls.join() === '@cf/meta/llama-3.3-70b-instruct-fp8-fast,@cf/google/gemma-4-26b-a4b-it',
+    '/place: a model that hangs is skipped after the time limit');
+
+  // Failures: no usable answer, Transport for NSW down, wrong origin, missing settings
   w = await loadWorker();
   ai = fakeAI({ answer: () => 'no idea' });
   res = await askPlace(w, penv(ai), '某地');
-  check(res.status === 502, '/place: no English words from the AI: error (app shows its not-found message)');
+  check(res.status === 502, '/place: no usable answer from any model: error (app shows its not-found message)');
   w = await loadWorker();
-  ai = fakeAI({ answer: () => '{"terms":["Broken"]}' });
+  ai = said([{ en: 'Broken', zh: '壞', kind: 'other' }]);
   res = await askPlace(w, penv(ai), '壞');
-  check(res.status === 502, '/place: Transport for NSW not answering: error, not remembered as "nothing found"');
+  check(res.status === 502, '/place: Transport for NSW not answering: error');
   res = await askPlace(w, penv(ai), '機場', 'https://someone-else.example');
   check(res.status === 403, '/place: other websites: Forbidden');
   res = await askPlace(w, { ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' }, '機場');

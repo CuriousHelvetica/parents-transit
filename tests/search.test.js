@@ -65,6 +65,26 @@ async function run(check, theme, width) {
   const msg = await page.locator('#results').innerText();
   check(msg.includes('找不到「嘉年華市場」') && msg.includes('請子女幫忙輸入英文') && !/HTTP|502|error/i.test(msg), `${tag}: not found: friendly message`);
 
+  // Waiting: an estimate (10 s before any search has been timed), then seconds counting up
+  if (theme === '1') {
+    await page.evaluate(() => localStorage.removeItem(PLACE_MS_KEY));
+    t.ai.delay = 2300;
+    await page.fill('#q', '悉尼大學三'); await page.click('[data-search]');
+    await page.waitForTimeout(1500);
+    const waitMsg = await page.locator('#results').innerText();
+    check(waitMsg.includes('大約要 10 秒') && /已等 1 秒/.test(waitMsg), `waiting: estimate and seconds waited (${waitMsg.replace(/\n/g, ' ')})`);
+    await page.waitForSelector('.result');
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem(PLACE_MS_KEY)));
+    check(kept.length === 1 && kept[0] >= 2000 && kept[0] < 5000, `the time it took is remembered on the phone (${kept})`);
+    await page.evaluate(() => localStorage.setItem(PLACE_MS_KEY, JSON.stringify([21000, 24000, 23000])));
+    await page.fill('#q', '悉尼大學四'); await page.click('[data-search]');
+    await page.waitForTimeout(300);
+    check((await page.locator('#results').innerText()).includes('大約要 25 秒'), 'estimate follows the recent searches (rounded up to 5 s)');
+    await page.waitForSelector('.result');
+    check(await page.evaluate(() => PLACE_TIMEOUT_MS) === 30000, 'the AI search waits up to 30 s');
+    t.ai.delay = 0;
+  }
+
   // Leaving the screen while the AI is still answering: nothing breaks
   await page.fill('#q', '慢'); await page.click('[data-search]'); await page.click('[data-back]');
   await page.waitForTimeout(300);

@@ -130,6 +130,15 @@ iPhone web apps can't vibrate. The screen flashes for "next stop" and turns gree
 
 ## Other
 
+**Chinese place search: one AI step and fixed rules (v1.9.1).**
+The first version (v1.9.0) used two AI steps with the large translation models. On the real service it took
+about a minute (the app gave up after 20 seconds), and the second step failed, so Transport for NSW's own
+order put Brownlow Hill bus stops before the Camperdown campus for 悉尼大學. Options: two steps with a faster
+model, or one AI step plus fixed rules for choosing among Transport for NSW's results. The owner chose one
+step plus rules (faster, fewer ways to fail, one result per meaning). The rules were checked against 15 real
+searches before shipping. The owner asked for up to 30 seconds of waiting with an honest estimate on screen,
+and for the model to be changeable in the dashboard (`PLACE_MODEL`).
+
 **Chinese search for any place (v1.9.0).**
 The owner's mother typed 悉尼機場 into 🔍 其他地點 on her first try, and it failed: Chinese only matched known
 stations. Considered: a longer built-in list only (reliable, but limited to what was thought of), AI translation

@@ -203,9 +203,9 @@ function noticesOf(leg) {
 const FETCH_TIMEOUT_MS = 20000;
 // `read` turns the response into the result; it runs inside the time limit, so a download that
 // stalls half-way is cut off too.
-async function fetchWithTimeout(url, read = (res) => res) {
+async function fetchWithTimeout(url, read = (res) => res, ms = FETCH_TIMEOUT_MS) {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const t = setTimeout(() => ctrl.abort(), ms);
   try {
     return await read(await fetch(url, { signal: ctrl.signal }));
   } catch (e) {
@@ -1865,6 +1865,27 @@ function dragPlace(e, grip) {
 // Chinese input is matched first against the app's own lists (stations in ZH_NAMES, places in ZH_PLACES);
 // if nothing there fits fully, the Worker's /place asks the AI, which only chooses among real
 // Transport for NSW places. English input goes straight to Transport for NSW, as before.
+// The AI place search may take a while: up to 30 s, with an estimate on screen from how long the last
+// few searches on this phone took (10 s until there are some).
+const PLACE_TIMEOUT_MS = 30000;
+const PLACE_MS_KEY = 'parents-transit-place-ms';
+function placeEstimateSec() {
+  let past = [];
+  try { past = JSON.parse(localStorage.getItem(PLACE_MS_KEY)) || []; } catch (e) { /* none yet */ }
+  if (!Array.isArray(past) || !past.length) return 10;
+  const sorted = past.filter((x) => x > 0).sort((a, b) => a - b);
+  const mid = sorted[Math.floor(sorted.length / 2)] || 10000;
+  return Math.min(30, Math.max(5, Math.ceil(mid / 5000) * 5));   // rounded up to 5, 10, 15 … seconds
+}
+function rememberPlaceMs(ms) {
+  let past = [];
+  try { past = JSON.parse(localStorage.getItem(PLACE_MS_KEY)) || []; } catch (e) { /* start again */ }
+  storeSet(PLACE_MS_KEY, JSON.stringify([...(Array.isArray(past) ? past : []), Math.round(ms)].slice(-5)));
+}
+function waitingText(est, sec) {
+  return `<div class="msg">🤖 正在尋找,大約要 ${est} 秒…<br><span class="small">${sec > est
+    ? '比平常慢,請再等一下 (最多 30 秒)' : `已等 ${sec} 秒`}</span></div>`;
+}
 const NOT_FOUND = (text) => `<div class="msg">找不到「${esc(text)}」。<br>可以試另一個名稱,或請子女幫忙輸入英文。</div>`;
 // Returns { exact, partial }: exact = the typed words are part of the name (伊頻 → 伊頻站);
 // partial = the name is part of what was typed (車士活醫院 → 車士活站), so the AI is asked as well.
@@ -1890,6 +1911,7 @@ const PLACE_KIND = {
   airport: ['✈️', '機場'], shopping: ['🛍️', '商場'], hospital: ['🏥', '醫院'], university: ['🎓', '大學'],
   school: ['🏫', '學校'], club: ['🍽️', '會所'], park: ['🌳', '公園'], beach: ['🏖️', '海灘'], museum: ['🏛️', '博物館'],
   church: ['⛪', '教堂'], temple: ['🛕', '廟宇'], market: ['🧺', '市場'], government: ['🏛️', '政府機構'],
+  suburb: ['🏘️', '地區'],
 };
 // A place from the Worker's /place (a Transport for NSW location with zh and kind) -> a search result
 function aiPlace(loc) {
@@ -1937,12 +1959,20 @@ function showSearchPlace(kind) {
       const { exact, partial } = localChineseMatches(text);
       places = exact.length ? exact : partial;
       if (!exact.length) {
-        box.innerHTML = '<div class="msg">搜尋中…</div>';
+        const est = placeEstimateSec();
+        const t0 = Date.now();
+        box.innerHTML = waitingText(est, 0);
+        const clock = setInterval(() => {
+          if (mine !== seq || !box.isConnected) return clearInterval(clock);
+          box.innerHTML = waitingText(est, Math.floor((Date.now() - t0) / 1000));
+        }, 1000);
         let found = [];
         try {
-          const data = await fetchWithTimeout(`${WORKER_URL}/place?${new URLSearchParams({ text })}`, readJson);
+          const data = await fetchWithTimeout(`${WORKER_URL}/place?${new URLSearchParams({ text })}`, readJson, PLACE_TIMEOUT_MS);
           found = (data.places || []).map(aiPlace);
-        } catch (e) { /* no connection or no AI: show what the app knows, or the not-found message */ }
+          rememberPlaceMs(Date.now() - t0);
+        } catch (e) { /* no connection, too slow or no AI: show what the app knows, or the not-found message */ }
+        clearInterval(clock);
         if (mine !== seq || !box.isConnected) return;
         const have = new Set(places.map((pl) => baseName(pl.query)));
         places = [...places, ...found.filter((pl) => !have.has(baseName(pl.query)))];

@@ -12,7 +12,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 **Planning a trip**
 - Two questions, then 🔍 搜尋路線: 去哪裡? (回家, any saved station, or 🔍 其他地點) and 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點; already set to 家).
 - The trip list starts at leave now; the time is changed on the list (see below).
-- 39 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place, in English or Chinese. Chinese finds the known stations and a list of common places (airport terminals, Opera House, clubs, big shopping centres) at once, each with a short line saying what it is; anything else is found through Cloudflare Workers AI, which only chooses among real Transport for NSW places and is marked 「🤖 自動翻譯的結果」. 雪梨 and 悉尼 both mean Sydney. A searched destination can be saved with ⭐ 加到常去地點.
+- 39 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place, in English or Chinese. Chinese finds the known stations and a list of common places (airport terminals, Opera House, clubs, big shopping centres) at once, each with a short line saying what it is; anything else is found through Cloudflare Workers AI (up to 30 seconds, with an estimate on screen), which only says what was meant; the places themselves come from Transport for NSW, and are marked 「🤖 自動翻譯的結果」. 雪梨 and 悉尼 both mean Sydney. A searched destination can be saved with ⭐ 加到常去地點.
 - Only public transport and walking — never cycling, driving or taxi legs.
 
 **Trip list**
@@ -42,6 +42,13 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.9.1 — 2026-11-17
+- Fixed: Chinese searches for places not on the built-in list (e.g. 悉尼大學) found nothing. The Worker took about a minute to answer, so the app gave up after 20 seconds; and when it did answer, its order put the wrong campus (bus stops at Brownlow Hill, near Camden) first.
+- The Worker's place search is now one quick AI step: it says what the person most likely means (up to 3 places, each with English and Chinese names), all are looked up in Transport for NSW at the same time, and the best real match for each is kept by fixed rules (the place itself before a station or bus stop; never a hotel, car park or post office; nothing rather than a guess). It uses a fast model first (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`), skips any model that takes over 12 seconds, and can be changed in the Cloudflare dashboard with `PLACE_MODEL`.
+- While searching, the screen says roughly how long it takes and counts the seconds: 「🤖 正在尋找,大約要 10 秒… 已等 4 秒」. The estimate follows the last few searches on that phone. It waits up to 30 seconds, then shows the 找不到 message.
+- For checking: `<worker address>/place?text=…&debug=1` (opened from the app's page) shows which model answered, how long each step took, and the AI's raw answer. `/status` also lists the place-search models.
+- **Needs the Worker updated again.**
 
 ### v1.9.0 — 2026-11-16
 - 🔍 其他地點 understands Chinese for any place, not just the known stations. Typing 悉尼機場 (or 雪梨機場, 機場, 飛機場) shows the three airport terminals: T2 (Virgin, Jetstar), T3 (Qantas) and T1 (international).

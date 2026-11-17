@@ -99,7 +99,8 @@ and nothing that can be broken by a stray tap.
 - **設定 is for the owner:** it opens after a 2-second hold, reordering is by drag handle, and deleting is a
   separate mode.
 - **Chinese search** (v1.9.0): 🔍 其他地點 matches `ZH_NAMES` and `ZH_PLACES` (names.js) first, then asks the
-  Worker's `/place` (AI picks among real Transport for NSW places). 雪梨 = 悉尼. AI results are marked 🤖 and
+  Worker's `/place` (v1.9.1: one fast AI call says what was meant; `bestMatch` picks the real Transport for NSW
+  place by rules; `&debug=1` shows models and timings). The app waits up to 30 s with an estimate on screen. 雪梨 = 悉尼. AI results are marked 🤖 and
   their short line is only kind + suburb. New `ZH_PLACES` entries: check the search name on the live site first.
 - **⏰ 提醒我 is hidden** (`FEATURE_REMINDER = false`): the calendar-file flow was too clumsy. Code is kept.
 

@@ -4,8 +4,9 @@
 // - /ics makes a calendar event with an alarm, used for "remind me when to leave".
 // - /translate translates service notices into Traditional Chinese with Workers AI (free tier).
 //   If a model fails (e.g. Cloudflare retired it), the next model in the list is tried automatically.
-// - /place finds a place typed in Chinese: Workers AI turns it into English search words, Transport for NSW
-//   finds the real places, and Workers AI picks the few most likely ones and names them in Chinese.
+// - /place finds a place typed in Chinese: one Workers AI call says what the person most likely means
+//   (up to 3 places, each with an English and a Chinese name), then each is looked up in Transport for NSW
+//   and the best real match is kept by fixed rules. Add &debug=1 to see models, timings and raw answers.
 // - /status shows which translation models are set up and which one answers (open it in a browser).
 //
 // Settings (Cloudflare dashboard → Worker → Settings → Variables and Secrets):
@@ -14,6 +15,7 @@
 //   TRANSLATE_MODEL (Text, optional) Workers AI models to try first, in order, separated by commas,
 //                   e.g. "@cf/qwen/qwen3.8-27b, @cf/google/gemma-4-26b-a4b-it". The built-in list below
 //                   is always tried after these. Change it when Cloudflare announces new models.
+//   PLACE_MODEL     (Text, optional) the same, for the Chinese place search (/place). Fast models suit it best.
 // Bindings (Worker → Settings → Bindings): Workers AI, variable name AI
 
 const UPSTREAM = 'https://api.transport.nsw.gov.au/v1/tp/';
@@ -26,24 +28,23 @@ const TRANSLATE_PROMPT =
   '(繁體中文), written in clear, simple standard written Chinese for elderly readers. ' +
   'Keep station names, street names, line and route numbers (e.g. T1, T9, 525) in English exactly as written, ' +
   'so they match the signs. Keep all times and dates. Output only the translation, nothing else.';
-const PLACE_TERMS_PROMPT =
+// Place search wants a quick answer, not long reasoning: fast models first, the translation ones after
+const DEFAULT_PLACE_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/google/gemma-4-26b-a4b-it'];
+const PLACE_MODEL_TIMEOUT_MS = 12000;   // a model slower than this is skipped (the app waits up to 30 s in all)
+const PLACE_PROMPT =
   'An elderly Cantonese speaker in Sydney, Australia typed the name of a place they want to travel to, in Chinese. ' +
   '雪梨 and 悉尼 both mean Sydney. Chinese names of Sydney suburbs are often Cantonese sound-alikes ' +
   '(e.g. 好市圍 = Hurstville, 車士活 = Chatswood, 寶活 = Burwood). ' +
-  'Give up to 3 short English search terms that the Transport for NSW trip planner would recognise for this place, ' +
-  'most likely first, using official English names (e.g. "Sydney Airport", "Royal Prince Alfred Hospital"). ' +
-  'Answer with JSON only, like {"terms":["..."]}.';
-const PLACE_PICK_PROMPT =
-  'An elderly Cantonese speaker in Sydney typed a place name in Chinese. Below it is a numbered list of places ' +
-  'found by the Transport for NSW trip planner. Choose at most 4 that the person most likely means, best first. ' +
-  'Prefer the place itself and its train, metro or light rail station. Leave out hotels, car parks, post offices, ' +
-  'police, shops inside a centre, and places in other cities, unless the person asked for them. ' +
-  'For each, give a short name in Traditional Chinese (繁體中文) as Sydney Chinese speakers would say it, and a kind, ' +
-  'one of: airport, shopping, hospital, university, school, club, park, beach, museum, church, temple, market, ' +
-  'government, other. Answer with JSON only, like {"picks":[{"n":1,"zh":"...","kind":"..."}]}.';
+  'Say which real places in Sydney they most likely mean: at most 3, most likely first, only more than one if it is ' +
+  'genuinely unclear. For each give "en": the official English name exactly as Transport for NSW would list it ' +
+  '(e.g. "University of Sydney", "Royal Prince Alfred Hospital", "Taronga Zoo"), no suburb or address; ' +
+  '"zh": a short Traditional Chinese (繁體中文) name as Sydney Chinese speakers say it; and "kind", one of: ' +
+  'airport, shopping, hospital, university, school, club, park, beach, museum, church, temple, market, government, ' +
+  'suburb, station, other. Answer with JSON only, like {"places":[{"en":"...","zh":"...","kind":"..."}]}.';
 const PLACE_KINDS = ['airport', 'shopping', 'hospital', 'university', 'school', 'club', 'park', 'beach', 'museum',
-  'church', 'temple', 'market', 'government', 'other'];
-const placeMemo = new Map();          // typed text -> answer
+  'church', 'temple', 'market', 'government', 'suburb', 'station', 'other'];
+let workingPlaceModel = null;
+const placeMemo = new Map();          // typed text -> answer (only answers that found something)
 const translationMemo = new Map();   // text -> { zh, model }
 let workingModel = null;              // the model that last answered (tried first next time)
 
@@ -77,7 +78,7 @@ export default {
     }
     if (url.pathname === '/place') {
       if (!allowed.includes(origin)) return new Response('Forbidden', { status: 403, headers: cors });
-      return place(url.searchParams.get('text') || '', env, cors);
+      return place(url.searchParams.get('text') || '', env, cors, url.searchParams.get('debug') === '1');
     }
 
     const match = url.pathname.match(/^\/tp\/([a-z_]+)$/);
@@ -103,7 +104,7 @@ export default {
 };
 
 // One model, one answer. Throws if the model fails or answers nothing.
-async function runModel(env, model, text, prompt = TRANSLATE_PROMPT) {
+async function runModel(env, model, text, prompt = TRANSLATE_PROMPT, maxTokens = 1000) {
   // "/no_think" asks Qwen3-family models to answer directly without a reasoning section; others don't need it
   const ask = /qwen3/i.test(model) ? `${text}\n\n/no_think` : text;
   const result = await env.AI.run(model, {
@@ -111,7 +112,7 @@ async function runModel(env, model, text, prompt = TRANSLATE_PROMPT) {
       { role: 'system', content: prompt },
       { role: 'user', content: ask },
     ],
-    max_tokens: 1000,
+    max_tokens: maxTokens,
     temperature: 0.2,
   });
   let zh = result && (result.response ?? result.choices?.[0]?.message?.content);
@@ -149,81 +150,116 @@ async function translate(text, env, cors) {
   return new Response(JSON.stringify(out), { status: out.error ? 502 : 200, headers });
 }
 
-// Asks each model in turn for a JSON answer; returns the parsed object, or null if none gave one
-async function askJson(env, prompt, text) {
-  for (const model of translateModels(env)) {
+function placeModels(env) {
+  const own = String(env.PLACE_MODEL || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const all = [...new Set([...own, ...DEFAULT_PLACE_MODELS])];
+  return workingPlaceModel && all.includes(workingPlaceModel)
+    ? [workingPlaceModel, ...all.filter((m) => m !== workingPlaceModel)] : all;
+}
+const withTimeout = (promise, ms) => Promise.race([promise,
+  new Promise((_, no) => setTimeout(() => no(new Error(`no answer in ${ms / 1000} s`)), ms))]);
+
+// Which places the person means: [{ en, zh, kind }] from the first model that gives a usable answer
+async function askPlaces(env, text, log) {
+  for (const model of placeModels(env)) {
+    const t0 = Date.now();
     try {
-      const raw = await runModel(env, model, text, prompt);
+      const raw = await withTimeout(runModel(env, model, text, PLACE_PROMPT, 300), PLACE_MODEL_TIMEOUT_MS);
+      log.push({ model, ms: Date.now() - t0, raw: raw.slice(0, 600) });
       const m = raw.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error('no JSON');
-      const out = JSON.parse(m[0]);
-      workingModel = model;
-      return out;
-    } catch (e) { /* next model */ }
+      const list = m ? JSON.parse(m[0]).places : null;
+      if (!Array.isArray(list)) throw new Error('no usable JSON');
+      const places = list.filter((p) => p && typeof p.en === 'string' && p.en.trim()).slice(0, 3).map((p) => ({
+        en: p.en.trim().slice(0, 80), zh: typeof p.zh === 'string' ? p.zh.trim().slice(0, 40) : '',
+        kind: PLACE_KINDS.includes(p.kind) ? p.kind : 'other' }));
+      workingPlaceModel = model;
+      return places;
+    } catch (e) {
+      const last = log[log.length - 1];
+      const err = String((e && e.message) || e).slice(0, 200);
+      if (last && last.model === model) last.error = err; else log.push({ model, ms: Date.now() - t0, error: err });
+    }
   }
   return null;
 }
 
-// GET /place?text=悉尼機場 -> { places: [ <Transport for NSW location> + zh, kind ], terms: [...] }
-// The places always come from Transport for NSW; the AI only chooses among them and names them.
-async function place(text, env, cors) {
+// "The University of Sydney, Camperdown" -> "university of sydney"; "Paddy's Markets Light Rail" -> "paddys markets"
+function core(s) {
+  return String(s || '').split(',')[0].toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/['’]/g, '')
+    .replace(/\s+(metro station|station|light rail|wharf)\s*$/, '').replace(/^the\s+/, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+const NOT_WANTED = /\b(hotel|motel|apartments?|backpackers|hostel|car ?park|parking|post office|police|bike (lockers?|hire)|atm|toilets?|cafe|restaurant)\b/i;
+// The best real match for one English name among Transport for NSW's results, or null.
+// The name must match (exactly, or one containing the other); then the place itself beats the suburb,
+// a station or wharf, and a bus stop. Hotels, car parks and the like only if that is what was asked for.
+function bestMatch(en, locations) {
+  const q = core(en);
+  if (!q) return null;
+  let best = null, bestScore = Infinity;
+  locations.forEach((loc, i) => {
+    if (!loc || !loc.id) return;
+    if (NOT_WANTED.test(loc.name) && !NOT_WANTED.test(en)) return;
+    const c = core(loc.name);
+    const match = c === q ? 0 : (c.length >= 4 && (c.includes(q) || q.includes(c))) ? 1 : null;
+    if (match === null) return;
+    const modes = loc.modes || [];
+    const type = loc.type === 'poi' ? 0 : (loc.type === 'suburb' || loc.type === 'locality') ? 1
+      : loc.type === 'stop' && (modes.includes(1) || modes.includes(2) || modes.includes(4) || modes.includes(9)) ? 2
+      : loc.type === 'stop' ? 4 : loc.type === 'street' ? 5 : 3;
+    const score = match * 100 + type * 10 + Math.min(i, 9);
+    if (score < bestScore) { best = loc; bestScore = score; }
+  });
+  return best;
+}
+
+// GET /place?text=悉尼大學 -> { places: [ <Transport for NSW location> + zh, kind ] }   (&debug=1: + debug)
+// The places always come from Transport for NSW; the AI only says what was meant and names it.
+async function place(text, env, cors, debug) {
   const headers = { ...cors, 'Content-Type': 'application/json; charset=utf-8' };
-  const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers });
+  const started = Date.now();
+  const log = [];
+  const reply = (body, status = 200) => new Response(JSON.stringify(debug
+    ? { ...body, debug: { ms: Date.now() - started, models: placeModels(env), steps: log } } : body), { status, headers });
   text = text.trim().slice(0, 60);
   if (!text) return reply({ places: [] });
   if (!env.AI) return reply({ error: 'Workers AI binding "AI" is not set' }, 501);
   if (!env.TFNSW_API_KEY) return reply({ error: 'TFNSW_API_KEY is not set' }, 500);
-  if (placeMemo.has(text)) return reply(placeMemo.get(text));
+  if (placeMemo.has(text)) { log.push({ memo: true }); return reply(placeMemo.get(text)); }
 
-  const asked = await askJson(env, PLACE_TERMS_PROMPT, text.replace(/雪梨/g, '悉尼'));
-  const terms = [...new Set((asked && Array.isArray(asked.terms) ? asked.terms : [])
-    .filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().slice(0, 80)))].slice(0, 3);
-  if (!terms.length) return reply({ error: 'translation failed' }, 502);
+  const meant = await askPlaces(env, text.replace(/雪梨/g, '悉尼'), log);
+  if (!meant) return reply({ error: 'translation failed' }, 502);
+  if (!meant.length) return reply({ places: [] });
 
-  // Look up every term; keep each place once, in the order found
-  const seen = new Set();
-  const found = [];
-  let answered = 0;
-  for (const term of terms) {
+  // Look every name up at the same time
+  const t0 = Date.now();
+  const lookups = await Promise.all(meant.map(async (p) => {
     const q = new URLSearchParams({ outputFormat: 'rapidJSON', coordOutputFormat: 'EPSG:4326', version: '10.2.1.42',
-      type_sf: 'any', name_sf: term, TfNSWSF: 'true' });
+      type_sf: 'any', name_sf: p.en, TfNSWSF: 'true' });
     try {
       const res = await fetch(`${UPSTREAM}stop_finder?${q}`, {
         headers: { Authorization: 'apikey ' + env.TFNSW_API_KEY, Accept: 'application/json' } });
-      if (!res.ok) continue;
-      answered += 1;
-      for (const loc of ((await res.json()).locations || []).slice(0, 8)) {
-        if (loc && loc.id && !seen.has(loc.id)) { seen.add(loc.id); found.push(loc); }
-      }
-    } catch (e) { /* try the next term */ }
-  }
-  if (!answered) return reply({ error: 'Transport for NSW did not answer', terms }, 502);
-  if (!found.length) {
-    const out = { places: [], terms };
-    placeMemo.set(text, out);
-    return reply(out);
-  }
+      if (!res.ok) return { error: `HTTP ${res.status}` };
+      return { locations: (await res.json()).locations || [] };
+    } catch (e) { return { error: String((e && e.message) || e).slice(0, 200) }; }
+  }));
+  log.push({ lookup: meant.map((p, i) => ({ en: p.en, found: (lookups[i].locations || []).length, error: lookups[i].error })),
+    ms: Date.now() - t0 });
+  if (lookups.every((l) => l.error)) return reply({ error: 'Transport for NSW did not answer' }, 502);
 
-  const list = found.map((l, i) => `${i + 1}. ${l.name} (${l.type})`).join('\n');
-  const picked = await askJson(env, PLACE_PICK_PROMPT, `Typed: ${text}\n\n${list}`);
-  let places = [];
-  if (picked && Array.isArray(picked.picks)) {
-    const used = new Set();
-    for (const p of picked.picks) {
-      const loc = found[(p && Number.isInteger(+p.n) ? +p.n : 0) - 1];
-      if (!loc || used.has(loc.id)) continue;   // only places Transport for NSW really returned
-      used.add(loc.id);
-      places.push({ ...loc, zh: typeof p.zh === 'string' ? p.zh.trim().slice(0, 40) : '',
-        kind: PLACE_KINDS.includes(p.kind) ? p.kind : 'other' });
-      if (places.length === 4) break;
-    }
+  const seen = new Set();
+  const places = [];
+  meant.forEach((p, i) => {
+    const loc = bestMatch(p.en, lookups[i].locations || []);
+    if (!loc || seen.has(loc.id)) return;
+    seen.add(loc.id);
+    places.push({ ...loc, zh: p.zh, kind: p.kind });
+  });
+  const out = { places };
+  if (places.length) {
+    if (placeMemo.size > 300) placeMemo.clear();
+    placeMemo.set(text, out);
   }
-  // If the second step failed (no usable answer at all), fall back to Transport for NSW's own order,
-  // without Chinese names. An answer that picks nothing means none of the places fit.
-  if (!picked || !Array.isArray(picked.picks)) places = found.slice(0, 4).map((l) => ({ ...l, zh: '', kind: 'other' }));
-  const out = { places, terms };
-  if (placeMemo.size > 300) placeMemo.clear();
-  placeMemo.set(text, out);
   return reply(out);
 }
 
@@ -231,7 +267,7 @@ async function place(text, env, cors) {
 // (remembered, so opening the page again doesn't use the AI allowance)
 async function status(env) {
   const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
-  const body = { models: translateModels(env), ai: !!env.AI };
+  const body = { models: translateModels(env), placeModels: placeModels(env), ai: !!env.AI };
   if (env.AI) {
     const out = await translateText(STATUS_TEXT, env);
     body.test = { text: STATUS_TEXT, ...out };

@@ -122,7 +122,7 @@ Uses the list of stops in the ride (`stopSequence`), each with a position and an
 |---|---|
 | `/tp/trip`, `/tp/stop_finder`, `/tp/departure_mon` | Passes the request to Transport for NSW with the API key added |
 | `/translate?text=…` | Translates a notice; tries each model in turn until one answers |
-| `/place?text=…` | Finds a place typed in Chinese: the AI gives up to 3 English search words, each is looked up in Transport for NSW, then the AI picks up to 4 of the places found (best first) and gives each a Chinese name and a kind (airport, hospital…). Places only ever come from Transport for NSW. Remembered per text |
+| `/place?text=…` | Finds a place typed in Chinese (v1.9.1): one AI call says what was meant, up to 3 places with English and Chinese names and a kind; each is looked up in Transport for NSW at the same time, and `bestMatch` keeps the best real match (name must match; place itself > suburb > station/wharf > bus stop > street; no hotels, car parks, post offices). Places only ever come from Transport for NSW. Fast models first (`DEFAULT_PLACE_MODELS`, `PLACE_MODEL`), 12 s per model. `&debug=1` adds models, timings and raw answers. Answers that found something are remembered per text |
 | `/status` | Lists the translation models in order and shows which one answered a test sentence |
 | `/ics` | Makes a calendar file for the hidden reminder feature |
 
@@ -163,7 +163,8 @@ Settings live in the Cloudflare dashboard: `TFNSW_API_KEY` (secret), `ALLOWED_OR
 2. `localChineseMatches` looks in `ZH_NAMES` (stations) and `ZH_PLACES` (common places, with other spellings).
    An *exact* match (what was typed is part of a name) is shown alone, with no AI. A *partial* match (a known
    name inside what was typed, e.g. 車士活 in 車士活醫院) is shown first, and the AI is asked as well.
-3. Otherwise the Worker's `/place` answers; `aiPlace` turns each place into a result. The icon and the word in
+3. Otherwise the Worker's `/place` answers (the app waits up to 30 s, showing an estimate from the last five
+   searches on the phone, kept under `parents-transit-place-ms`, and the seconds waited); `aiPlace` turns each place into a result. The icon and the word in
    the short line come from Transport for NSW's type (station, bus stop, street) or, for other places, from the
    AI's `kind`; the suburb comes from Transport for NSW. The AI never writes the short line itself.
 4. The `ZH_PLACES` search names were checked against the live search (each resolves to itself as the best
