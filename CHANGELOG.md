@@ -43,6 +43,9 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### Docs — 2026-11-18 (no change to the app)
+- Live check of the Chinese place search recorded in `docs/OPEN-ITEMS.md`, with the agreed next Worker change (AI must not label a wrong place with the typed words), waiting for the parents' own test.
+
 ### v1.9.2 — 2026-11-18
 - Fixed (Worker): Chinese place searches still found nothing after v1.9.1. The diagnostic showed both AI models answering within seconds, but their answers were being thrown away: when an answer is JSON, Workers AI can hand it back already decoded, and the Worker only accepted text. It now accepts both, and if an answer is ever unreadable, `&debug=1` shows what came back. No change to the app's screens.
 - **Needs the Worker updated again.**

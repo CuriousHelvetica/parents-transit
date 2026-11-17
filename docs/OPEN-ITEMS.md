@@ -12,12 +12,28 @@ These could not be checked without the real services or a real iPhone.
 | **The 40% walking allowance** | Time the parents' real walk to their station against the time Transport for NSW gives |
 | **Dragging to reorder** in 設定, tested with a simulated pointer | Try it on an iPhone |
 | **📍 你在 on the Harbour Bridge.** It once kept showing Milsons Point; the box is now live, but how OpenStreetMap labels the bridge is unknown | Watch it while crossing |
-| **Chinese search through the AI** (v1.9.0): how well it handles Cantonese sound-alike names the app doesn't know, and whether its picks are sensible | After the Worker update, the parents type five or six places they would naturally use; note which come back wrong |
+| **Chinese search through the AI** (v1.9.2, working live since 2026-11-18): how well it handles names the parents actually use | The owner's mother types five or six places she would naturally use; the owner reports which come back wrong. **Waiting on this** before the next Worker change (below) |
 | **New Sydney Fish Market** is not in Transport for NSW's place data (Nov 2026), so it isn't in the built-in list | Search `Sydney Fish Market` again later, or use a map position the owner provides |
 | **Colours on a real screen**, especially outdoors, and the flashing 🔔 screen in 主題 1 | Look at them on the phone |
 
 Confirmed on the owner's iPhone: trains that just left appear (Transport for NSW does return past
 departures); the long-press fix; the double-tap zoom fix (v1.8.3); translation with the current model.
+
+## Next Worker change (agreed, waiting for the parents' test)
+
+Live check on 2026-11-18 (8 searches, 1–2 s each, all answered by the fast llama model): 悉尼大學, 雪梨大學,
+情人港, 皇家阿爾弗雷德王子醫院, 動物園, 邦迪海灘 all correct. Two showed a weakness: for a name it doesn't
+know, the AI picks a real place anyway and **labels it with the typed words**, so a wrong result looks right.
+- 康縣醫院 (made up, meant as Concord Hospital) → Royal Prince Alfred Hospital, shown as 「康縣醫院」.
+- 車士活醫院 → Royal North Shore Hospital (St Leonards), shown as 「車士活醫院」.
+
+Planned fix, to be made together with whatever the parents' test shows (one Worker paste):
+- `PLACE_PROMPT`: "zh" must be the usual Chinese name of the place found, never the typed words copied
+  back; return nothing when unsure instead of a best guess.
+- Add a `zoo` kind (🦁 動物園; the AI already answers "zoo", which now falls back to 📍 other).
+- Show the suburb in the short line in Chinese where `ZH_NAMES` has it (already done in the app for known
+  suburbs; check St Leonards etc.).
+- Re-run the live check: with the app open on the real site, `fetch(WORKER_URL + '/place?text=…&debug=1')`.
 
 ## Parked: the owner's decision is needed before building
 

@@ -114,7 +114,9 @@ Not verified (needs the real service or a real phone):
 - Whether cards **flicker** as overlapping background searches replace each other's trips.
 - The no-GPS countdown in a real tunnel; dragging to reorder on a real iPhone; the +40% walking pace.
 - Whether OpenStreetMap labels the Harbour Bridge as Milsons Point (📍 你在).
-- How well the AI Chinese search handles names the app doesn't know; the new Fish Market is not in Transport for NSW's data.
+- How well the AI Chinese search handles names the parents use: waiting for the owner's mother to try five or
+  six. A Worker change is already agreed (stop the AI labelling a wrong place with the typed words); see
+  `docs/OPEN-ITEMS.md`, "Next Worker change". The new Fish Market is not in Transport for NSW's data.
 
 Parked, owner's decision needed before building:
 - Remembering the open trip or countdown when the iPhone restarts the app.
