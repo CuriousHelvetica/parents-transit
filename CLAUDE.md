@@ -47,6 +47,8 @@ and nothing that can be broken by a stray tap.
 - **The Worker is deployed by hand.** A change to `worker/worker.js` does nothing until the owner pastes the file
   into the Cloudflare dashboard (Workers & Pages → parents-transit → Edit code → Deploy). Avoid Worker changes
   unless needed; when one is needed, walk the owner through it and have them open `<worker address>/status`.
+- **Workers AI may return JSON answers already decoded** (an object in `response`, not text). `runModel` handles
+  both; v1.9.0–v1.9.1 missed this and every place search failed.
 - **Translation models get retired.** The Worker tries `TRANSLATE_MODEL` (dashboard setting, comma-separated)
   and then `DEFAULT_TRANSLATE_MODELS`, moving to the next on failure. See SETUP.md, "Translation models".
 - **Phones keep their own settings.** Saved places and the home address live in `localStorage`. Changing

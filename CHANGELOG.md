@@ -43,6 +43,10 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - What changed
 -->
 
+### v1.9.2 — 2026-11-18
+- Fixed (Worker): Chinese place searches still found nothing after v1.9.1. The diagnostic showed both AI models answering within seconds, but their answers were being thrown away: when an answer is JSON, Workers AI can hand it back already decoded, and the Worker only accepted text. It now accepts both, and if an answer is ever unreadable, `&debug=1` shows what came back. No change to the app's screens.
+- **Needs the Worker updated again.**
+
 ### v1.9.1 — 2026-11-17
 - Fixed: Chinese searches for places not on the built-in list (e.g. 悉尼大學) found nothing. The Worker took about a minute to answer, so the app gave up after 20 seconds; and when it did answer, its order put the wrong campus (bus stops at Brownlow Hill, near Camden) first.
 - The Worker's place search is now one quick AI step: it says what the person most likely means (up to 3 places, each with English and Chinese names), all are looked up in Transport for NSW at the same time, and the best real match for each is kept by fixed rules (the place itself before a station or bus stop; never a hotel, car park or post office; nothing rather than a guess). It uses a fast model first (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`), skips any model that takes over 12 seconds, and can be changed in the Cloudflare dashboard with `PLACE_MODEL`.

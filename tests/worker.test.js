@@ -148,6 +148,17 @@ module.exports = async (check) => {
   await askPlace(w, penv(ai), '雪梨大學');
   check(ai.calls.length === k, '/place: same text again: answered from memory');
 
+  // Workers AI can hand a JSON answer back already decoded, as an object (seen on the live service)
+  w = await loadWorker();
+  const objAI = { calls: [], async run(model) { this.calls.push(model);
+    return { response: { places: [{ en: 'University of Sydney', zh: '悉尼大學', kind: 'university' }] } }; } };
+  body = await (await askPlace(w, penv(objAI), '悉尼大學')).json();
+  check(body.places.length === 1 && body.places[0].id === 'u1' && objAI.calls.length === 1, '/place: an answer already decoded as an object is understood');
+  w = await loadWorker();
+  const oddAI = { async run() { return { result: 42 }; } };
+  body = await (await askPlace(w, penv(oddAI), '悉尼大學', ORIGIN, '&debug=1')).json();
+  check(body.debug.steps.some((st) => /answer was \{result:number\}/.test(st.error || '')), '/place debug: an unreadable answer says what came back');
+
   // Several meanings, looked up together: each keeps its best real match; hotels, streets and wrong places never
   w = await loadWorker();
   tfnswAsked.length = 0;

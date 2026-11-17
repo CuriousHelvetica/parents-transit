@@ -116,9 +116,16 @@ async function runModel(env, model, text, prompt = TRANSLATE_PROMPT, maxTokens =
     temperature: 0.2,
   });
   let zh = result && (result.response ?? result.choices?.[0]?.message?.content);
+  // When a model answers in JSON, Workers AI may hand the answer back already decoded, as an object
+  if (zh && typeof zh === 'object') zh = JSON.stringify(zh);
   if (typeof zh !== 'string') zh = '';
   zh = zh.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  if (!zh) throw new Error('empty translation');
+  if (!zh) {
+    // Say what came back, so /place?…&debug=1 shows it
+    const shape = result && typeof result === 'object'
+      ? Object.entries(result).map(([k, v]) => `${k}:${Array.isArray(v) ? 'array' : typeof v}`).join(',') : typeof result;
+    throw new Error(`empty translation (answer was {${shape}})`);
+  }
   return zh;
 }
 
