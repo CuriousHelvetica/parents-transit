@@ -96,7 +96,7 @@ On a trip's detail page, **⏰ 提醒我** opens a calendar invite. Tap **Add to
 - This is the part I could not test on a real iPhone. Please try it once yourself.
 
 ### Going somewhere not on the buttons (🔍 其他地點)
-Below the destination buttons, **🔍 其他地點** opens a search box. Type a station, suburb, address or place in English (e.g. `Eastwood`, `Westfield Burwood`). Station names the app knows also work in Chinese (e.g. 伊頻). Tap a result to see trips straight away; the buttons don't change. To keep it as a button, tap **⭐ 加到常去地點** on the trip screen.
+Below the destination buttons, **🔍 其他地點** opens a search box. Type a station, suburb, address or place in English (e.g. `Eastwood`, `Westfield Burwood`) or in Chinese (e.g. 伊頻, 機場, 歌劇院, 悉尼大學). Known stations and the app's list of common places (`ZH_PLACES` in `names.js`) are found at once; other Chinese names are looked up through the Worker's `/place` with Workers AI, and marked 🤖. Addresses are best typed in English. Tap a result to see trips straight away; the buttons don't change. To keep it as a button, tap **⭐ 加到常去地點** on the trip screen.
 
 ### Walking directions (🗺️ 地圖指路)
 From 30 minutes before a trip leaves, each walking step (to a station, bus stop or the destination) has a **🗺️ 地圖指路** button. It opens **Apple Maps** with walking directions from where the phone is now to that exact stop. Check **Settings → Privacy & Security → Location Services → Maps → While Using the App**.

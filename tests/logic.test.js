@@ -172,9 +172,27 @@ module.exports = async (check) => {
   });
   check(voice === 'Sinji (Enhanced)', `cantoneseVoice: ${voice}`);
 
-  // Chinese search for known stations
-  const zh = await ev(() => localChineseMatches('伊頻').map((p) => `${p.zh}/${p.query}`));
-  check(zh.join() === '伊頻站/Epping Station', `localChineseMatches 伊頻: ${zh.join()}`);
+  // Chinese search: the app's own lists (stations and other places), 雪梨 = 悉尼
+  const lm = (text) => ev((text) => { const r = localChineseMatches(text);
+    return { exact: r.exact.map((p) => p.zh), partial: r.partial.map((p) => p.zh), query: r.exact.map((p) => p.query) }; }, text);
+  let m = await lm('伊頻');
+  check(m.exact.join() === '伊頻站' && m.query.join() === 'Epping Station', `localChineseMatches 伊頻: ${m.exact.join()}`);
+  m = await lm('悉尼機場');
+  check(m.exact.length === 3 && m.exact.every((z) => z.includes('機場')), `悉尼機場: T1, T2, T3 (${m.exact.join(' / ')})`);
+  const snow = await lm('雪梨機場');
+  check(snow.exact.join() === m.exact.join(), '雪梨機場 finds the same as 悉尼機場');
+  m = await lm('北雪梨');
+  check(m.exact.join() === '北悉尼站', `北雪梨 finds 北悉尼站 (${m.exact.join()})`);
+  m = await lm('雪梨 歌劇院');
+  check(m.exact.join() === '悉尼歌劇院', `spaces ignored: 雪梨 歌劇院 (${m.exact.join()})`);
+  m = await lm('車士活');
+  check(m.exact[0] === '車士活站' && m.exact.length === 4, `車士活: the station first, then RSL, Westfield, Chase (${m.exact.join(' / ')})`);
+  m = await lm('車士活醫院');
+  check(!m.exact.length && m.partial.join() === '車士活站', `車士活醫院: no full match, the station kept as a partial one (${m.partial.join()})`);
+  m = await lm('悉尼大學');
+  check(!m.exact.length && !m.partial.length, '悉尼大學: not in the app\'s lists');
+  const queries = await ev(() => ZH_PLACES.every((p) => p.zh && p.en && p.query && p.icon && p.note && p.names.length));
+  check(queries, 'every place in ZH_PLACES has a name, English, search name, icon and short line');
 
   // Uber link: drop-off position and name
   const up = await ev(() => Object.fromEntries(new URL(uberLink({ query: 'Burwood Station' },

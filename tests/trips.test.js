@@ -229,7 +229,10 @@ module.exports = async (check) => {
   check(await page.locator('.stale').count() === 1 && (await page.locator('.stale').innerText()).includes('未能更新')
     && await page.locator('.card[data-j]').count() > 0, 'refresh fails: 「⚠️ 未能更新,以下時間可能不準」 above the (old) trips');
   t.api.offline = false;
-  await page.clock.runFor(125000); await page.waitForTimeout(800);
+  // Back online: let time pass in 10-second steps. One big jump would race the fake clock past the app's
+  // 20-second request limit before the (real) answer arrives, so the refresh would count as a timeout.
+  for (let s = 0; s < 13; s++) { await page.clock.runFor(10000); await page.waitForTimeout(150); }
+  await page.waitForTimeout(500);
   check(await page.locator('.stale').count() === 0, 'refresh works again: warning gone');
 
   // A trip's details page picks up a delay announced after it was opened, and keeps open folds open

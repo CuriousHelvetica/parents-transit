@@ -12,6 +12,8 @@ These could not be checked without the real services or a real iPhone.
 | **The 40% walking allowance** | Time the parents' real walk to their station against the time Transport for NSW gives |
 | **Dragging to reorder** in 設定, tested with a simulated pointer | Try it on an iPhone |
 | **📍 你在 on the Harbour Bridge.** It once kept showing Milsons Point; the box is now live, but how OpenStreetMap labels the bridge is unknown | Watch it while crossing |
+| **Chinese search through the AI** (v1.9.0): how well it handles Cantonese sound-alike names the app doesn't know, and whether its picks are sensible | After the Worker update, the parents type five or six places they would naturally use; note which come back wrong |
+| **New Sydney Fish Market** is not in Transport for NSW's place data (Nov 2026), so it isn't in the built-in list | Search `Sydney Fish Market` again later, or use a map position the owner provides |
 | **Colours on a real screen**, especially outdoors, and the flashing 🔔 screen in 主題 1 | Look at them on the phone |
 
 Confirmed on the owner's iPhone: trains that just left appear (Transport for NSW does return past
@@ -46,7 +48,9 @@ After any change to these areas, ask the owner to try:
    turns green on arrival.
 6. **Read aloud:** 🔊 朗讀 speaks Cantonese, and the first word is not clipped.
 7. **Slow presses and double taps:** a one-second press on a button still works; double-tapping does not zoom.
-8. **Both themes:** 設定 → 主題, then look at the main screen, a trip list and a trip's details.
+8. **Chinese search:** 🔍 其他地點 → type 雪梨機場: three terminals, no 🤖. Type 悉尼大學: results marked 🤖 (needs
+   the v1.9.0 Worker).
+9. **Both themes:** 設定 → 主題, then look at the main screen, a trip list and a trip's details.
 
 ## Possible future ideas
 

@@ -132,6 +132,7 @@ function tripApi(opts = {}) {
 
 // ---------- browser ----------
 // opts: api (tripApi options), width, places (stop_finder results), translate (fn text -> zh),
+//       aiPlace (fn text -> the Worker's /place answer; without it /place is "not found" like an old Worker),
 //       clock (true or a start time in ms: fake clock, still running at normal speed until moved on)
 async function open(opts = {}) {
   const server = await serve();
@@ -151,6 +152,7 @@ async function open(opts = {}) {
   page.on('dialog', (d) => (d.type() === 'prompt' ? d.accept(opts.promptAnswer ?? '') : d.accept()));
   const api = tripApi(opts.api || {});
   const osm = { calls: 0 };
+  const ai = { placeCalls: [] };
   await page.route('https://nominatim.openstreetmap.org/**', (r) => {
     osm.calls += 1;
     const lat = +new URL(r.request().url()).searchParams.get('lat');
@@ -167,13 +169,20 @@ async function open(opts = {}) {
       const text = u.searchParams.get('text') || '';
       return route.fulfill({ json: { zh: opts.translate ? opts.translate(text) : `中文:${text}` } });
     }
+    if (u.pathname.endsWith('/place')) {
+      const text = u.searchParams.get('text') || '';
+      ai.placeCalls.push(text);
+      if (!opts.aiPlace) return route.fulfill({ status: 404, body: '' });
+      const answer = opts.aiPlace(text);
+      return answer ? route.fulfill({ json: answer }) : route.fulfill({ status: 502, json: { error: 'translation failed' } });
+    }
     if (u.pathname.endsWith('/trip')) return api.handler(route);
     return route.fulfill({ status: 404, body: '' });
   });
   if (opts.clock) await page.clock.install(opts.clock === true ? {} : { time: opts.clock });
   await page.goto(server.url);
   const close = async () => { await browser.close(); server.close(); };
-  return { page, ctx, api: api.state, osm, errors, close };
+  return { page, ctx, api: api.state, osm, ai, errors, close };
 }
 
 // Common steps

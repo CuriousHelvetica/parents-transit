@@ -122,6 +122,7 @@ Uses the list of stops in the ride (`stopSequence`), each with a position and an
 |---|---|
 | `/tp/trip`, `/tp/stop_finder`, `/tp/departure_mon` | Passes the request to Transport for NSW with the API key added |
 | `/translate?text=…` | Translates a notice; tries each model in turn until one answers |
+| `/place?text=…` | Finds a place typed in Chinese: the AI gives up to 3 English search words, each is looked up in Transport for NSW, then the AI picks up to 4 of the places found (best first) and gives each a Chinese name and a kind (airport, hospital…). Places only ever come from Transport for NSW. Remembered per text |
 | `/status` | Lists the translation models in order and shows which one answered a test sentence |
 | `/ics` | Makes a calendar file for the hidden reminder feature |
 
@@ -155,3 +156,15 @@ Settings live in the Cloudflare dashboard: `TFNSW_API_KEY` (secret), `ALLOWED_OR
 | `HERE_MOVE_M`, `HERE_GAP_MS` | 150 m, 30 s | 📍 你在 looks up a new address after this much movement, at most this often |
 | `FETCH_TIMEOUT_MS` | 20 s | Network time limit |
 | `FEATURE_REMINDER` | false | Set to true to bring back ⏰ 提醒我 |
+
+## 🔍 其他地點 in Chinese (v1.9.0)
+
+1. `sameSydney` treats 雪梨 as 悉尼 and ignores spaces.
+2. `localChineseMatches` looks in `ZH_NAMES` (stations) and `ZH_PLACES` (common places, with other spellings).
+   An *exact* match (what was typed is part of a name) is shown alone, with no AI. A *partial* match (a known
+   name inside what was typed, e.g. 車士活 in 車士活醫院) is shown first, and the AI is asked as well.
+3. Otherwise the Worker's `/place` answers; `aiPlace` turns each place into a result. The icon and the word in
+   the short line come from Transport for NSW's type (station, bus stop, street) or, for other places, from the
+   AI's `kind`; the suburb comes from Transport for NSW. The AI never writes the short line itself.
+4. The `ZH_PLACES` search names were checked against the live search (each resolves to itself as the best
+   match). Recheck one with the app open on the real site and `searchPlaces('<name>')` in the browser console.

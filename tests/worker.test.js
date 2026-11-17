@@ -103,4 +103,74 @@ module.exports = async (check) => {
   // Trip planner requests still need the app's origin
   res = await w.fetch(new Request('https://w.example/tp/trip?x=1'), { ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' });
   check(res.status === 403, 'trip planner without the app origin: Forbidden');
+
+  // ---- /place: Chinese place name -> English search words (AI) -> Transport for NSW -> AI picks and names
+  const realFetch = global.fetch;
+  const tfnswAsked = [];
+  const LOCS = {
+    'Sydney Airport': [
+      { id: 'h1', name: 'Holiday Inn Sydney Airport, Mascot', type: 'poi' },
+      { id: 't1', name: 'Sydney Airport - T1 International (SYD), Mascot', type: 'poi' },
+      { id: 't2', name: 'Sydney Airport - T2 Domestic (SYD), Mascot', type: 'poi' },
+    ],
+    'Domestic Airport Station': [{ id: 's1', name: 'Domestic Airport Station, Mascot', type: 'stop', modes: [1] },
+      { id: 't2', name: 'Sydney Airport - T2 Domestic (SYD), Mascot', type: 'poi' }],
+  };
+  global.fetch = async (url, init) => {
+    const u = new URL(url);
+    const term = u.searchParams.get('name_sf');
+    tfnswAsked.push({ term, key: init && init.headers && init.headers.Authorization });
+    if (term === 'Broken') return new Response('', { status: 500 });
+    return new Response(JSON.stringify({ locations: LOCS[term] || [] }), { headers: { 'Content-Type': 'application/json' } });
+  };
+  const placeAI = (pick) => fakeAI({ answer: (model, user) => (user.startsWith('Typed:') ? pick(user) : JSON.stringify({ terms: ['Sydney Airport', 'Domestic Airport Station'] })) });
+  const askPlace = (worker, env, text, origin = ORIGIN) => worker.fetch(
+    new Request(`https://w.example/place?text=${encodeURIComponent(text)}`, { headers: origin ? { Origin: origin } : {} }), env);
+  const penv = (ai) => ({ AI: ai, ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' });
+
+  w = await loadWorker();
+  ai = placeAI((user) => `Here: {"picks":[{"n":3,"zh":"悉尼國內機場 T2","kind":"airport"},{"n":2,"zh":"國際機場","kind":"airport"},{"n":99,"zh":"假","kind":"airport"},{"n":4,"zh":"國內機場站","kind":"spaceship"}]}`);
+  res = await askPlace(w, penv(ai), '雪梨機場');
+  body = await res.json();
+  check(ai.calls[0].user.startsWith('悉尼機場'), '/place: 雪梨 is passed to the AI as 悉尼');
+  check(tfnswAsked.map((x) => x.term).join() === 'Sydney Airport,Domestic Airport Station' && tfnswAsked.every((x) => x.key === 'apikey k'),
+    `/place: each English term looked up with the key (${tfnswAsked.map((x) => x.term).join(', ')})`);
+  check(ai.calls[1].user.includes('Typed: 雪梨機場') && (ai.calls[1].user.match(/Sydney Airport - T2/g) || []).length === 1,
+    '/place: the AI chooses from the places found, each listed once');
+  check(res.status === 200 && body.places.map((p) => p.id).join() === 't2,t1,s1',
+    `/place: AI's order kept; a number that wasn't in the list is ignored (${body.places.map((p) => p.id).join()})`);
+  check(body.places[0].zh === '悉尼國內機場 T2' && body.places[0].kind === 'airport' && body.places[0].name.includes('T2'),
+    '/place: places keep Transport for NSW details plus zh and kind');
+  check(body.places[2].kind === 'other', '/place: an unknown kind becomes "other"');
+  const k = ai.calls.length;
+  await askPlace(w, penv(ai), '雪梨機場');
+  check(ai.calls.length === k, '/place: same text again: answered from memory');
+
+  // The AI chooses nothing: nothing shown (not the hotel)
+  w = await loadWorker();
+  ai = placeAI(() => '{"picks":[]}');
+  body = await (await askPlace(w, penv(ai), '機場酒店')).json();
+  check(body.places.length === 0, '/place: AI says none fit: no places');
+
+  // The choosing step fails: Transport for NSW's own order, no Chinese names
+  w = await loadWorker();
+  ai = placeAI(() => 'sorry');
+  body = await (await askPlace(w, penv(ai), '機場')).json();
+  check(body.places.length === 4 && body.places[0].id === 'h1' && body.places.every((p) => p.zh === ''),
+    '/place: choosing step fails: first four places as found, without Chinese names');
+
+  // Translation fails, Transport for NSW fails, wrong origin, missing settings
+  w = await loadWorker();
+  ai = fakeAI({ answer: () => 'no idea' });
+  res = await askPlace(w, penv(ai), '某地');
+  check(res.status === 502, '/place: no English words from the AI: error (app shows its not-found message)');
+  w = await loadWorker();
+  ai = fakeAI({ answer: () => '{"terms":["Broken"]}' });
+  res = await askPlace(w, penv(ai), '壞');
+  check(res.status === 502, '/place: Transport for NSW not answering: error, not remembered as "nothing found"');
+  res = await askPlace(w, penv(ai), '機場', 'https://someone-else.example');
+  check(res.status === 403, '/place: other websites: Forbidden');
+  res = await askPlace(w, { ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' }, '機場');
+  check(res.status === 501, '/place: no Workers AI binding: clear error');
+  global.fetch = realFetch;
 };

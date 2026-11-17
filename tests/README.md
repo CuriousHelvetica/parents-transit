@@ -24,7 +24,8 @@ Each check prints `PASS` or `FAIL`; the run ends with a summary and exits with a
 | `trips.test.js` | Trip list in time order, ◀ 早一點 · ⏱️ 現在 · 遲一點 ▶ (rounding, instant from memory, quick tapping on a slow network), 改時間及日期 (cancel, arrive-by), back from details, offline + 重試, 30-minute rule for live buttons, trains that just left (folded), stale-times warning, details refresh, scroll position, two trips sharing a first train, errors, ⭐ save, 15-second updates without redrawing, refresh when coming back to the app |
 | `details.test.js` | Steps, platform, direction, stop list, service notices (translated, severe open, routine folded, HTML harmless, remembered), map link, 🔊 朗讀 |
 | `countdown.test.js` | 📍 還有幾個站 on a simulated bus ride (🔔 and arrival alerts), no GPS signal, location refused, one-stop rides, the 下一程 button, and the 「可能不是原定班次」 note for earlier / later services |
-| `worker.test.js` | The Cloudflare Worker with a fake Workers AI: model order, automatic fallback when a model is retired, `TRANSLATE_MODEL`, `/status`, origin checks |
+| `search.test.js` | 🔍 其他地點 in Chinese through the AI (faked `/place`): icons, short lines, 🤖 note, known station first, not-found message, both themes, 320 px |
+| `worker.test.js` | The Cloudflare Worker with a fake Workers AI: model order, automatic fallback when a model is retired, `TRANSLATE_MODEL`, `/status`, origin checks, `/place` (雪梨 → 悉尼, only real places, AI order, fallbacks, errors) |
 | `layout.test.js` | Every screen fits at 393, 375 and 320 px wide |
 
 `helpers.js` holds the shared set-up: a small web server for the app, the fake services, and the fake

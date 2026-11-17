@@ -130,6 +130,18 @@ iPhone web apps can't vibrate. The screen flashes for "next stop" and turns gree
 
 ## Other
 
+**Chinese search for any place (v1.9.0).**
+The owner's mother typed 悉尼機場 into 🔍 其他地點 on her first try, and it failed: Chinese only matched known
+stations. Considered: a longer built-in list only (reliable, but limited to what was thought of), AI translation
+only (covers everything, but can be wrong), or both. Chosen: both. The built-in list (airports, Opera House,
+clubs, big shopping centres) answers instantly with hand-written short lines; anything else goes to the AI.
+The AI only chooses among places Transport for NSW really returns, so it cannot invent a stop. The owner chose
+a short line under each result so they know they picked the right place; for AI results that line is limited
+to the kind of place and the suburb, because the AI could confidently state wrong facts. AI results are marked
+🤖. Airports are listed by terminal (T1, T2, T3), since the parents know their airline. 雪梨 and 悉尼 both
+mean Sydney (the owner: they often say 雪梨). No Chinese addresses or street names. The new Sydney Fish
+Market (opened January 2026) is not in Transport for NSW's place data yet, so it was left off the list.
+
 **Home address never in the repository.**
 The owner asked for their parents' address as the default home. The repository is public and Git history is
 permanent, so it was not added; it is set on each phone in 設定. The default stays "Rhodes Station".

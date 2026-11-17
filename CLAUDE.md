@@ -98,6 +98,9 @@ and nothing that can be broken by a stray tap.
   both. If 主題 2 falls out of use, fold 主題 1 into `style.css` and remove the switch.
 - **設定 is for the owner:** it opens after a 2-second hold, reordering is by drag handle, and deleting is a
   separate mode.
+- **Chinese search** (v1.9.0): 🔍 其他地點 matches `ZH_NAMES` and `ZH_PLACES` (names.js) first, then asks the
+  Worker's `/place` (AI picks among real Transport for NSW places). 雪梨 = 悉尼. AI results are marked 🤖 and
+  their short line is only kind + suburb. New `ZH_PLACES` entries: check the search name on the live site first.
 - **⏰ 提醒我 is hidden** (`FEATURE_REMINDER = false`): the calendar-file flow was too clumsy. Code is kept.
 
 ## Open items
@@ -108,6 +111,7 @@ Not verified (needs the real service or a real phone):
 - Whether cards **flicker** as overlapping background searches replace each other's trips.
 - The no-GPS countdown in a real tunnel; dragging to reorder on a real iPhone; the +40% walking pace.
 - Whether OpenStreetMap labels the Harbour Bridge as Milsons Point (📍 你在).
+- How well the AI Chinese search handles names the app doesn't know; the new Fish Market is not in Transport for NSW's data.
 
 Parked, owner's decision needed before building:
 - Remembering the open trip or countdown when the iPhone restarts the app.

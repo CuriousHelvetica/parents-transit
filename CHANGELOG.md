@@ -12,7 +12,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 **Planning a trip**
 - Two questions, then 🔍 搜尋路線: 去哪裡? (回家, any saved station, or 🔍 其他地點) and 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點; already set to 家).
 - The trip list starts at leave now; the time is changed on the list (see below).
-- 39 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place (English, or Chinese for known stations). A searched destination can be saved with ⭐ 加到常去地點.
+- 39 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place, in English or Chinese. Chinese finds the known stations and a list of common places (airport terminals, Opera House, clubs, big shopping centres) at once, each with a short line saying what it is; anything else is found through Cloudflare Workers AI, which only chooses among real Transport for NSW places and is marked 「🤖 自動翻譯的結果」. 雪梨 and 悉尼 both mean Sydney. A searched destination can be saved with ⭐ 加到常去地點.
 - Only public transport and walking — never cycling, driving or taxi legs.
 
 **Trip list**
@@ -42,6 +42,16 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.9.0 — 2026-11-16
+- 🔍 其他地點 understands Chinese for any place, not just the known stations. Typing 悉尼機場 (or 雪梨機場, 機場, 飛機場) shows the three airport terminals: T2 (Virgin, Jetstar), T3 (Qantas) and T1 (international).
+- New built-in list of common places, found instantly in Chinese with several spellings each: the airport terminals, the Opera House, Chatswood RSL, Club Central Hurstville, and the big shopping centres (Westfields, Chatswood Chase, Castle Towers, Macquarie Centre, Top Ryde, Rhodes Waterside, Bankstown Central, Westpoint). Each was checked against the live Transport for NSW search.
+- Anything else typed in Chinese goes to the AI: it turns the name into English search words, Transport for NSW finds the real places, and the AI picks the 3 or 4 most likely ones and names them in Chinese. Hotels, car parks and post offices are left out. These results are marked 「🤖 自動翻譯的結果,請看清楚是否正確」.
+- Every result shows an icon, the Chinese name, a short line saying what it is (e.g. 「醫院 · 車士活 Chatswood」), and the English underneath.
+- If nothing is found, or there is no connection: 「找不到…可以試另一個名稱,或請子女幫忙輸入英文。」
+- 雪梨 and 悉尼 are treated as the same word everywhere in the search.
+- Tests: the 「未能更新」 warning check no longer races the fake clock against the app's 20-second request limit (it failed on faster or slower computers, not on phones).
+- **Needs the Worker updated** (new `/place`): until it is pasted into Cloudflare, Chinese searches still find the built-in places and stations, and anything else shows 找不到.
 
 ### Docs — 2026-11-15 (no change to the app)
 - Project notes added in `docs/`: design goals and rules, the decision log (what was chosen, the alternatives and why), how the code works, the owner's working preferences, and open items with a real-phone checklist.

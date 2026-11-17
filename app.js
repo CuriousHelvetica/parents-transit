@@ -1862,36 +1862,92 @@ function dragPlace(e, grip) {
 }
 
 // 🔍 其他地點: plan a one-off trip to any place without changing the saved buttons.
-// Chinese input matches the station names this app knows; anything else is searched in English.
+// Chinese input is matched first against the app's own lists (stations in ZH_NAMES, places in ZH_PLACES);
+// if nothing there fits fully, the Worker's /place asks the AI, which only chooses among real
+// Transport for NSW places. English input goes straight to Transport for NSW, as before.
+const NOT_FOUND = (text) => `<div class="msg">找不到「${esc(text)}」。<br>可以試另一個名稱,或請子女幫忙輸入英文。</div>`;
+// Returns { exact, partial }: exact = the typed words are part of the name (伊頻 → 伊頻站);
+// partial = the name is part of what was typed (車士活醫院 → 車士活站), so the AI is asked as well.
 function localChineseMatches(text) {
-  return Object.entries(ZH_NAMES).filter(([, zh]) => zh.includes(text) || text.includes(zh.split(' ')[0]))
-    .map(([en, zh]) => {
-      const train = !NOT_TRAIN_STATIONS.includes(en);
-      return { zh: withStation(zh, train), en, query: train ? `${en} Station` : en };
-    });
+  const t = sameSydney(text);
+  const exact = [], partial = [];
+  const add = (place, names) => {
+    const ns = names.map(sameSydney).filter(Boolean);
+    if (ns.some((n) => n.includes(t))) exact.push(place);
+    else if (ns.some((n) => t.includes(n))) partial.push(place);
+  };
+  for (const [en, zh] of Object.entries(ZH_NAMES)) {
+    const train = !NOT_TRAIN_STATIONS.includes(en);
+    add({ zh: withStation(zh, train), en, query: train ? `${en} Station` : en,
+      icon: train ? '🚉' : '🚈', note: train ? '火車站' : '輕鐵站' }, [zh, zh.split(' ')[0]]);
+  }
+  for (const pl of ZH_PLACES) {
+    add({ zh: pl.zh, en: pl.en, query: pl.query, icon: pl.icon, note: pl.note }, [pl.zh, ...pl.names]);
+  }
+  return { exact, partial };
+}
+const PLACE_KIND = {
+  airport: ['✈️', '機場'], shopping: ['🛍️', '商場'], hospital: ['🏥', '醫院'], university: ['🎓', '大學'],
+  school: ['🏫', '學校'], club: ['🍽️', '會所'], park: ['🌳', '公園'], beach: ['🏖️', '海灘'], museum: ['🏛️', '博物館'],
+  church: ['⛪', '教堂'], temple: ['🛕', '廟宇'], market: ['🧺', '市場'], government: ['🏛️', '政府機構'],
+};
+// A place from the Worker's /place (a Transport for NSW location with zh and kind) -> a search result
+function aiPlace(loc) {
+  const en = loc.disassembledName || baseName(loc.name);
+  const modes = loc.modes || [];
+  let icon = '📍', word = '地點';
+  if (loc.type === 'stop') {
+    [icon, word] = modes.includes(1) ? ['🚉', '火車站'] : modes.includes(2) ? ['🚇', '地鐵站']
+      : modes.includes(4) ? ['🚈', '輕鐵站'] : modes.includes(9) ? ['⛴️', '碼頭'] : ['🚌', '巴士站'];
+  } else if (loc.type === 'street') [icon, word] = ['🛣️', '街道'];
+  else if (loc.type === 'suburb' || loc.type === 'locality') [icon, word] = ['🏘️', '地區'];
+  else if (PLACE_KIND[loc.kind]) [icon, word] = PLACE_KIND[loc.kind];
+  const known = zhOf(loc.name);   // our own name for a station we know beats the AI's
+  const zh = known ? withStation(known, /Station/i.test(loc.name)) : (loc.zh || '');
+  const suburb = loc.parent && loc.parent.name ? String(loc.parent.name) : '';
+  const where = suburb ? (ZH_NAMES[suburb] ? `${ZH_NAMES[suburb]} ${suburb}` : suburb) : '';
+  return { zh, en, query: loc.name, ref: refFromLocation(loc), icon, note: where ? `${word} · ${where}` : word,
+    full: loc.name, ai: true };
+}
+function resultHtml(pl, i) {
+  const name = pl.zh || pl.en;
+  const en = pl.zh ? (pl.full || pl.en) : (pl.full && pl.full !== pl.en ? pl.full : '');
+  return `<button class="result" data-pick="${i}"><span class="rname">${pl.icon ? `${pl.icon} ` : ''}${esc(name)}</span>
+    ${pl.note ? `<div class="rnote">${esc(pl.note)}</div>` : ''}${en ? `<div class="small">${esc(en)}</div>` : ''}</button>`;
 }
 function showSearchPlace(kind) {
   clearTimers();
   state.screen = 'search';
   render(`<button class="back" data-back>← 返回</button>
     <h1>${kind === 'from' ? '從其他地點出發' : '去其他地點'}</h1>
-    <div class="small">輸入車站、地址或地點名稱。中文只適用於已知車站 (例如 伊頻),其他請用英文 (例如 Eastwood)。</div>
-    <div class="bar"><input type="text" id="q" placeholder="例如 伊頻 / Eastwood" autocomplete="off"></div>
+    <div class="small">輸入車站或地點名稱,中文或英文都可以。</div>
+    <div class="bar"><input type="text" id="q" placeholder="例如 機場 / 歌劇院 / Eastwood" autocomplete="off"></div>
     <div class="bar"><button class="btn primary" data-search>🔍 搜尋</button></div>
     <div id="results"></div>`);
   $app.querySelector('[data-back]').onclick = () => showPicker(kind);
   const input = $app.querySelector('#q');
+  let seq = 0;   // a newer search replaces an older one still waiting for an answer
   const go = async () => {
     const box = $app.querySelector('#results');
     const text = input.value.trim();
     if (!text) return;
+    const mine = ++seq;
     let places = [];
-    if (/[\u3400-\u9fff]/.test(text)) {
-      places = localChineseMatches(text);
-      if (!places.length) {
-        box.innerHTML = '<div class="msg">找不到這個中文名稱。請改用英文輸入 (例如 Eastwood)。</div>';
-        return;
+    if (/[㐀-鿿]/.test(text)) {
+      const { exact, partial } = localChineseMatches(text);
+      places = exact.length ? exact : partial;
+      if (!exact.length) {
+        box.innerHTML = '<div class="msg">搜尋中…</div>';
+        let found = [];
+        try {
+          const data = await fetchWithTimeout(`${WORKER_URL}/place?${new URLSearchParams({ text })}`, readJson);
+          found = (data.places || []).map(aiPlace);
+        } catch (e) { /* no connection or no AI: show what the app knows, or the not-found message */ }
+        if (mine !== seq || !box.isConnected) return;
+        const have = new Set(places.map((pl) => baseName(pl.query)));
+        places = [...places, ...found.filter((pl) => !have.has(baseName(pl.query)))];
       }
+      if (!places.length) { box.innerHTML = NOT_FOUND(text); return; }
     } else {
       box.innerHTML = '<div class="msg">搜尋中…</div>';
       try {
@@ -1900,17 +1956,17 @@ function showSearchPlace(kind) {
           return { zh, en: l.disassembledName || baseName(l.name), query: l.name, ref: refFromLocation(l), full: l.name };
         });
       } catch (e) {
-        box.innerHTML = `<div class="err">無法連接伺服器 (${esc(e.message)})</div>`;
+        if (mine === seq) box.innerHTML = `<div class="err">無法連接伺服器 (${esc(e.message)})</div>`;
         return;
       }
-      if (!places.length) { box.innerHTML = '<div class="msg">找不到</div>'; return; }
+      if (mine !== seq || !box.isConnected) return;
+      if (!places.length) { box.innerHTML = NOT_FOUND(text); return; }
     }
-    box.innerHTML = places.map((pl, i) => `<button class="result" data-pick="${i}">
-      ${pl.zh ? `${esc(pl.zh)} <span class="en">${esc(pl.en)}</span>` : esc(pl.en)}
-      <div class="small">${esc(pl.full || pl.query)}</div></button>`).join('');
+    box.innerHTML = (places.some((pl) => pl.ai) ? '<div class="small aihint">🤖 自動翻譯的結果,請看清楚是否正確</div>' : '')
+      + places.map(resultHtml).join('');
     box.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => {
-      const { full, ...place } = places[+b.dataset.pick];
-      setChoice(kind, { ...place, searched: true });
+      const { zh, en, query, ref } = places[+b.dataset.pick];
+      setChoice(kind, { zh, en, query, ...(ref ? { ref } : {}), searched: true });
     });
   };
   $app.querySelector('[data-search]').onclick = go;

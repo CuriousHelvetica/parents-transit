@@ -4,6 +4,8 @@
 // - /ics makes a calendar event with an alarm, used for "remind me when to leave".
 // - /translate translates service notices into Traditional Chinese with Workers AI (free tier).
 //   If a model fails (e.g. Cloudflare retired it), the next model in the list is tried automatically.
+// - /place finds a place typed in Chinese: Workers AI turns it into English search words, Transport for NSW
+//   finds the real places, and Workers AI picks the few most likely ones and names them in Chinese.
 // - /status shows which translation models are set up and which one answers (open it in a browser).
 //
 // Settings (Cloudflare dashboard → Worker → Settings → Variables and Secrets):
@@ -24,6 +26,24 @@ const TRANSLATE_PROMPT =
   '(繁體中文), written in clear, simple standard written Chinese for elderly readers. ' +
   'Keep station names, street names, line and route numbers (e.g. T1, T9, 525) in English exactly as written, ' +
   'so they match the signs. Keep all times and dates. Output only the translation, nothing else.';
+const PLACE_TERMS_PROMPT =
+  'An elderly Cantonese speaker in Sydney, Australia typed the name of a place they want to travel to, in Chinese. ' +
+  '雪梨 and 悉尼 both mean Sydney. Chinese names of Sydney suburbs are often Cantonese sound-alikes ' +
+  '(e.g. 好市圍 = Hurstville, 車士活 = Chatswood, 寶活 = Burwood). ' +
+  'Give up to 3 short English search terms that the Transport for NSW trip planner would recognise for this place, ' +
+  'most likely first, using official English names (e.g. "Sydney Airport", "Royal Prince Alfred Hospital"). ' +
+  'Answer with JSON only, like {"terms":["..."]}.';
+const PLACE_PICK_PROMPT =
+  'An elderly Cantonese speaker in Sydney typed a place name in Chinese. Below it is a numbered list of places ' +
+  'found by the Transport for NSW trip planner. Choose at most 4 that the person most likely means, best first. ' +
+  'Prefer the place itself and its train, metro or light rail station. Leave out hotels, car parks, post offices, ' +
+  'police, shops inside a centre, and places in other cities, unless the person asked for them. ' +
+  'For each, give a short name in Traditional Chinese (繁體中文) as Sydney Chinese speakers would say it, and a kind, ' +
+  'one of: airport, shopping, hospital, university, school, club, park, beach, museum, church, temple, market, ' +
+  'government, other. Answer with JSON only, like {"picks":[{"n":1,"zh":"...","kind":"..."}]}.';
+const PLACE_KINDS = ['airport', 'shopping', 'hospital', 'university', 'school', 'club', 'park', 'beach', 'museum',
+  'church', 'temple', 'market', 'government', 'other'];
+const placeMemo = new Map();          // typed text -> answer
 const translationMemo = new Map();   // text -> { zh, model }
 let workingModel = null;              // the model that last answered (tried first next time)
 
@@ -55,6 +75,10 @@ export default {
       if (!allowed.includes(origin)) return new Response('Forbidden', { status: 403, headers: cors });
       return translate(url.searchParams.get('text') || '', env, cors);
     }
+    if (url.pathname === '/place') {
+      if (!allowed.includes(origin)) return new Response('Forbidden', { status: 403, headers: cors });
+      return place(url.searchParams.get('text') || '', env, cors);
+    }
 
     const match = url.pathname.match(/^\/tp\/([a-z_]+)$/);
     if (!match || !ALLOWED_ENDPOINTS.includes(match[1])) {
@@ -78,13 +102,13 @@ export default {
   },
 };
 
-// One model, one translation. Throws if the model fails or answers nothing.
-async function runModel(env, model, text) {
+// One model, one answer. Throws if the model fails or answers nothing.
+async function runModel(env, model, text, prompt = TRANSLATE_PROMPT) {
   // "/no_think" asks Qwen3-family models to answer directly without a reasoning section; others don't need it
   const ask = /qwen3/i.test(model) ? `${text}\n\n/no_think` : text;
   const result = await env.AI.run(model, {
     messages: [
-      { role: 'system', content: TRANSLATE_PROMPT },
+      { role: 'system', content: prompt },
       { role: 'user', content: ask },
     ],
     max_tokens: 1000,
@@ -123,6 +147,84 @@ async function translate(text, env, cors) {
   if (!env.AI) return new Response(JSON.stringify({ error: 'Workers AI binding "AI" is not set' }), { status: 501, headers });
   const out = await translateText(text, env);
   return new Response(JSON.stringify(out), { status: out.error ? 502 : 200, headers });
+}
+
+// Asks each model in turn for a JSON answer; returns the parsed object, or null if none gave one
+async function askJson(env, prompt, text) {
+  for (const model of translateModels(env)) {
+    try {
+      const raw = await runModel(env, model, text, prompt);
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('no JSON');
+      const out = JSON.parse(m[0]);
+      workingModel = model;
+      return out;
+    } catch (e) { /* next model */ }
+  }
+  return null;
+}
+
+// GET /place?text=悉尼機場 -> { places: [ <Transport for NSW location> + zh, kind ], terms: [...] }
+// The places always come from Transport for NSW; the AI only chooses among them and names them.
+async function place(text, env, cors) {
+  const headers = { ...cors, 'Content-Type': 'application/json; charset=utf-8' };
+  const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers });
+  text = text.trim().slice(0, 60);
+  if (!text) return reply({ places: [] });
+  if (!env.AI) return reply({ error: 'Workers AI binding "AI" is not set' }, 501);
+  if (!env.TFNSW_API_KEY) return reply({ error: 'TFNSW_API_KEY is not set' }, 500);
+  if (placeMemo.has(text)) return reply(placeMemo.get(text));
+
+  const asked = await askJson(env, PLACE_TERMS_PROMPT, text.replace(/雪梨/g, '悉尼'));
+  const terms = [...new Set((asked && Array.isArray(asked.terms) ? asked.terms : [])
+    .filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().slice(0, 80)))].slice(0, 3);
+  if (!terms.length) return reply({ error: 'translation failed' }, 502);
+
+  // Look up every term; keep each place once, in the order found
+  const seen = new Set();
+  const found = [];
+  let answered = 0;
+  for (const term of terms) {
+    const q = new URLSearchParams({ outputFormat: 'rapidJSON', coordOutputFormat: 'EPSG:4326', version: '10.2.1.42',
+      type_sf: 'any', name_sf: term, TfNSWSF: 'true' });
+    try {
+      const res = await fetch(`${UPSTREAM}stop_finder?${q}`, {
+        headers: { Authorization: 'apikey ' + env.TFNSW_API_KEY, Accept: 'application/json' } });
+      if (!res.ok) continue;
+      answered += 1;
+      for (const loc of ((await res.json()).locations || []).slice(0, 8)) {
+        if (loc && loc.id && !seen.has(loc.id)) { seen.add(loc.id); found.push(loc); }
+      }
+    } catch (e) { /* try the next term */ }
+  }
+  if (!answered) return reply({ error: 'Transport for NSW did not answer', terms }, 502);
+  if (!found.length) {
+    const out = { places: [], terms };
+    placeMemo.set(text, out);
+    return reply(out);
+  }
+
+  const list = found.map((l, i) => `${i + 1}. ${l.name} (${l.type})`).join('\n');
+  const picked = await askJson(env, PLACE_PICK_PROMPT, `Typed: ${text}\n\n${list}`);
+  let places = [];
+  if (picked && Array.isArray(picked.picks)) {
+    const used = new Set();
+    for (const p of picked.picks) {
+      const loc = found[(p && Number.isInteger(+p.n) ? +p.n : 0) - 1];
+      if (!loc || used.has(loc.id)) continue;   // only places Transport for NSW really returned
+      used.add(loc.id);
+      places.push({ ...loc, zh: typeof p.zh === 'string' ? p.zh.trim().slice(0, 40) : '',
+        kind: PLACE_KINDS.includes(p.kind) ? p.kind : 'other' });
+      if (places.length === 4) break;
+    }
+  }
+  // If the second step failed (no usable answer at all), fall back to Transport for NSW's own order,
+  // without Chinese names. An answer that picks nothing means none of the places fit.
+  if (!picked || !Array.isArray(picked.picks)) places = found.slice(0, 4).map((l) => ({ ...l, zh: '', kind: 'other' }));
+  const out = { places, terms };
+  if (placeMemo.size > 300) placeMemo.clear();
+  placeMemo.set(text, out);
+  return reply(out);
 }
 
 // GET /status -> the models in the order they are tried, and a test translation of one fixed sentence

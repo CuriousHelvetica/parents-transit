@@ -83,10 +83,19 @@ module.exports = async (check) => {
 
   // ---- 🔍 其他地點
   await page.click('[data-row=to]'); await page.click('[data-other]');
+  check((await page.locator('#app').innerText()).includes('中文或英文都可以'), 'instructions: Chinese or English both work');
   await page.fill('#q', '伊頻'); await page.click('[data-search]');
-  check((await page.locator('.result').allInnerTexts()).join().includes('Epping Station'), 'Chinese search finds 伊頻 Epping');
+  check((await page.locator('.result').allInnerTexts()).join().includes('Epping'), 'Chinese search finds 伊頻 Epping');
+  await page.fill('#q', '雪梨機場'); await page.click('[data-search]');
+  let rs = await page.locator('.result').allInnerTexts();
+  check(rs.length === 3 && rs.every((r) => r.includes('✈️')) && rs.join().includes('Qantas') && rs.join().includes('國際航班'),
+    `雪梨機場: three terminals with a short line each (${rs.length})`);
+  check(t.ai.placeCalls.length === 0 && await page.locator('.aihint').count() === 0, 'places the app knows: no AI, no 🤖 line');
+  // Not known: the AI's answer (an old Worker without /place answers 404)
   await page.fill('#q', '不存在'); await page.click('[data-search]');
-  check((await page.locator('#results').innerText()).includes('找不到這個中文名稱'), 'unknown Chinese name: asks for English');
+  await page.waitForSelector('#results .msg:has-text("找不到")');
+  check((await page.locator('#results').innerText()).includes('請子女幫忙輸入英文'), 'unknown Chinese name, no AI answer: friendly not-found message');
+  check(t.ai.placeCalls.join() === '不存在', 'unknown Chinese name: the AI was asked');
   await page.fill('#q', 'Westfield Burwood'); await page.press('#q', 'Enter');
   await page.waitForSelector('.result');
   await page.click('.result');
