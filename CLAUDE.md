@@ -112,6 +112,9 @@ and nothing that can be broken by a stray tap.
 
 ## Open items
 
+Next release (owner's request): show the version at the bottom of the main screen instead of 設定. See
+`docs/OPEN-ITEMS.md`, "Next release".
+
 Not verified (needs the real service or a real phone):
 - How Transport for NSW marks a **cancelled** service in trip results. The app has no check for it. Ask the
   owner to open a cancelled trip with `?debug=1`.

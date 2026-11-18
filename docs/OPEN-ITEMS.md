@@ -19,6 +19,13 @@ These could not be checked without the real services or a real iPhone.
 Confirmed on the owner's iPhone: trains that just left appear (Transport for NSW does return past
 departures); the long-press fix; the double-tap zoom fix (v1.8.3); translation with the current model.
 
+## Next release (requested by the owner, 2026-11-18)
+
+- **Version number at the bottom of the main screen.** Move it from the bottom of 設定 to the bottom of the
+  main screen (below ⚙️ 設定), small and quiet, so the owner can check a phone has the update without the
+  2-second hold and scrolling. Mock it up first (both themes). Update the real-phone checklist step 1, SETUP.md,
+  CHANGELOG.md's version note, and the `settings show the version` check in `tests/home.test.js`.
+
 ## Next Worker change (agreed, waiting for the parents' test)
 
 Live check on 2026-11-18 (8 searches, 1–2 s each, all answered by the fast llama model): 悉尼大學, 雪梨大學,
@@ -55,7 +62,8 @@ See [`DECISIONS.md`](DECISIONS.md) for the reasoning.
 
 After any change to these areas, ask the owner to try:
 
-1. **Version:** hold ⚙️ 設定 for 2 seconds; the bottom of the page shows the new version. If not, swipe the app
+1. **Version:** hold ⚙️ 設定 for 2 seconds; the bottom of the page shows the new version (moving to the main
+   screen in the next release). If not, swipe the app
    away and reopen it.
 2. **A search:** 去哪裡 → a station → 🔍 搜尋路線. Cards show a departure time, the walk, and the arrival.
 3. **Time bar:** several quick taps on 遲一點 ▶ respond at once; ⏱️ 現在 returns to now.
