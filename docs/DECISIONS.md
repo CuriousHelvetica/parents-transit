@@ -130,6 +130,15 @@ iPhone web apps can't vibrate. The screen flashes for "next stop" and turns gree
 
 ## Other
 
+**Fastest and least-walking trips together (v1.9.3).**
+The owner tried Rhodes → University of Sydney: the only trips shown were T9 to Redfern and a 31-minute walk
+(22 minutes by Transport for NSW, +40%). That is Transport for NSW's fastest answer; with
+`routeType=leastwalking` it offers train + bus trips with 10–15 minutes' walk, 4–7 minutes slower. Options:
+always least walking, both mixed, or as is. The owner chose both, mixed ("let them decide"). The least-walking
+answer is sometimes seconds slower; the owner chose to wait for both before showing the list ("they only search
+once; a complete picture is better") rather than show the fastest first and have cards move. Doubling the
+requests hit Transport for NSW's limit (about 5 a second), so trip requests are spaced 250 ms apart.
+
 **Chinese place search: one AI step and fixed rules (v1.9.1).**
 The first version (v1.9.0) used two AI steps with the large translation models. On the real service it took
 about a minute (the app gave up after 20 seconds), and the second step failed, so Transport for NSW's own

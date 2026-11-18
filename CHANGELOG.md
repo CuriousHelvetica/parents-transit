@@ -13,7 +13,7 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - Two questions, then 🔍 搜尋路線: 去哪裡? (回家, any saved station, or 🔍 其他地點) and 從哪裡出發? (家, 現在位置, any saved station, or 🔍 其他地點; already set to 家).
 - The trip list starts at leave now; the time is changed on the list (see below).
 - 39 saved stations (Chinese + English names) in both lists, plus 🔍 其他地點 to search any station, address or place, in English or Chinese. Chinese finds the known stations and a list of common places (airport terminals, Opera House, clubs, big shopping centres) at once, each with a short line saying what it is; anything else is found through Cloudflare Workers AI (up to 30 seconds, with an estimate on screen), which only says what was meant; the places themselves come from Transport for NSW, and are marked 「🤖 自動翻譯的結果」. 雪梨 and 悉尼 both mean Sydney. A searched destination can be saved with ⭐ 加到常去地點.
-- Only public transport and walking — never cycling, driving or taxi legs.
+- Only public transport and walking — never cycling, driving or taxi legs. Each search asks Transport for NSW for both the fastest trips and the ones with least walking, shown together in time order.
 
 **Trip list**
 - Each card: when the first train or bus leaves its stop and how long until then (「晚上 6:21 開車 · 21 分鐘後」), the walk to it at their pace (「步行到 羅德站 約 14 分鐘」, Transport for NSW's time +40%), arrival time, 全程 from that departure to arrival, number of changes, delays, service-notice warning. Hints when the walk is longer than the time left, or a change is too tight for their pace.
@@ -42,6 +42,12 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 ### vX.Y(.Z) — YYYY-MM-DD
 - What changed
 -->
+
+### v1.9.3 — 2026-11-18
+- Trips with less walking. Transport for NSW gives the fastest trips by default, which can mean a long walk (Rhodes → University of Sydney: T9 to Redfern, then 31 minutes on foot at their pace). Every search now also asks for the trips with the least walking, at the same time, and both kinds go into the one list in time order, so they can choose by the walking time and changes on each card (e.g. T9 to Central + bus 423, or T9 + T3 + bus 370 with 10 minutes' walk).
+- The list waits for both answers (the owner's choice: a few more seconds for a complete picture, rather than cards moving once it is shown). If the least-walking answer fails, the fastest trips show alone.
+- Trip requests are now spaced at least a quarter of a second apart: with twice as many, Transport for NSW refused some (it allows about 5 a second).
+- No Worker change.
 
 ### Docs — 2026-11-18 (no change to the app)
 - Live check of the Chinese place search recorded in `docs/OPEN-ITEMS.md`, with the agreed next Worker change (AI must not label a wrong place with the typed words), waiting for the parents' own test.

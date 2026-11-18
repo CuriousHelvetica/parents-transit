@@ -65,7 +65,13 @@ minutes and rounds to :00 or :30; stepping back past now returns to `now`.
 and lists are ordered by it.
 
 **Trips are kept in memory** for as long as a route's list is open (`newTripPool`):
-- Each search asks Transport for NSW for 8 trips and records the stretch of time it covers.
+- Each search asks Transport for NSW for 8 trips twice at the same time (`planTrip`): fastest (default) and
+  `routeType=leastwalking`. Both are merged (same `tripKey` once) and the list waits for both. The stretch
+  recorded as covered ends where the shorter of the two lists ends (`edge`), so read-ahead never skips trips
+  from either. If the least-walking request fails, the fastest are used and no trips are dropped that time
+  (`partial`). Trip requests start at least 250 ms apart (`tripGate`): Transport for NSW refuses more than
+  about 5 a second.
+- Each search records the stretch of time it covers.
 - `tripsFor` builds what to show for the chosen time from memory; if that time isn't covered yet, the screen
   shows 「正在搜尋路線…」 and fetches it at once.
 - In the background the app reads ahead about 3 hours (up to 3 searches at once), plus 2 steps behind, and at

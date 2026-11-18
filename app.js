@@ -215,7 +215,18 @@ async function fetchWithTimeout(url, read = (res) => res, ms = FETCH_TIMEOUT_MS)
   }
 }
 const readJson = (res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); };
+// Transport for NSW refuses more than about 5 requests a second (429). Trip searches (two per search, plus
+// read-ahead) start at least TRIP_GAP_MS apart, so at most 4 a second.
+const TRIP_GAP_MS = 250;
+let tripNextAt = 0;
+async function tripGate() {
+  const now = Date.now();
+  const at = Math.max(now, tripNextAt);
+  tripNextAt = at + TRIP_GAP_MS;
+  if (at > now) await new Promise((ok) => setTimeout(ok, at - now));
+}
 async function api(endpoint, params) {
+  if (endpoint === 'trip') await tripGate();
   const q = new URLSearchParams({ outputFormat: 'rapidJSON', coordOutputFormat: 'EPSG:4326', version: '10.2.1.42', ...params });
   return fetchWithTimeout(`${WORKER_URL}/tp/${endpoint}?${q}`, readJson);
 }
@@ -253,6 +264,11 @@ function currentPosition() {
   });
 }
 
+// Transport for NSW gives the fastest trips by default, which can mean a long walk at the end (e.g. Redfern to
+// the University of Sydney, 22 minutes). So every search asks twice at the same time: fastest, and least
+// walking. Both lists go into the one list in time order (the same trip once), and the parents choose by the
+// walking time on each card. If the least-walking request fails (e.g. too many requests), the fastest is enough.
+// The result's `edge` is how far both lists reach (see fetchTrips), so read-ahead never skips trips.
 async function planTrip(origin, dest, when) {
   let date, time, arrive = false;
   if (when.mode === 'later') {
@@ -264,7 +280,7 @@ async function planTrip(origin, dest, when) {
     date = p.year + p.month + p.day;
     time = p.hour + p.minute;
   }
-  const data = await api('trip', {
+  const ask = (extra) => api('trip', {
     depArrMacro: arrive ? 'arr' : 'dep',
     itdDate: date,
     itdTime: time,
@@ -272,11 +288,27 @@ async function planTrip(origin, dest, when) {
     type_destination: dest.type, name_destination: dest.name,
     calcNumberOfTrips: '8',
     TfNSWTR: 'true',
+    ...extra,
+  }).then((data) => (data.journeys || []).filter((j) => j.legs && j.legs.length));
+  const [fast, less] = await Promise.all([ask({}), ask({ routeType: 'leastwalking' }).catch(() => null)]);
+  const seen = new Set();
+  const all = [...fast, ...(less || [])].filter((j) => {
+    const k = tripKey(j);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
   });
-  const all = (data.journeys || []).filter((j) => j.legs && j.legs.length);
-  if (DEBUG) return all;
-  // Only public transport + walking: never cycling, driving or taxi.
-  return all.filter((j) => !j.legs.some((l) => modeOf(l).other));
+  // Each list covers the stretch up to its last trip (leave-at) or from its first (arrive-by); together they
+  // cover only as far as the shorter one
+  const reach = (list) => {
+    const times = list.map(arrive ? arrMs : depMs).filter((x) => !isNaN(x));
+    return times.length ? (arrive ? Math.min(...times) : Math.max(...times)) : null;
+  };
+  const edges = [reach(fast), less && less.length ? reach(less) : null].filter((x) => x !== null);
+  const kept = DEBUG ? all : all.filter((j) => !j.legs.some((l) => modeOf(l).other));   // only public transport + walking
+  kept.edge = edges.length ? (arrive ? Math.max(...edges) : Math.min(...edges)) : null;
+  kept.partial = less === null;   // the least-walking list is missing this time
+  return kept;
 }
 
 // Notice translation (English -> Traditional Chinese), remembered on the phone.
@@ -828,14 +860,19 @@ async function fetchTrips(pool, origin, dest, when) {
   const arrive = isArrive(when);
   const T = whenTime(when);
   const js = await planTrip(origin, dest, when);
-  const times = js.map(arrive ? arrMs : depMs).filter((x) => !isNaN(x));
+  // Known up to where both the fastest and the least-walking lists reach (planTrip's edge).
   // Nothing found: count the next (or previous) hour as known-empty, so the screen doesn't wait forever
-  const span = times.length ? (arrive ? [Math.min(T, ...times), T] : [T, Math.max(T, ...times)])
+  const edge = js.edge;
+  const span = edge !== null && edge !== undefined ? (arrive ? [Math.min(T, edge), T] : [T, Math.max(T, edge)])
     : (arrive ? [T - 3600000, T] : [T, T + 3600000]);
   const keys = new Set(js.map(tripKey));
-  for (const [k, j] of pool.trips) {
-    const x = arrive ? arrMs(j) : depMs(j);
-    if (x >= span[0] && x <= span[1] && !keys.has(k)) pool.trips.delete(k);
+  // Trips no longer offered are dropped, unless the least-walking list is missing this time (then its trips
+  // from the last search stay, rather than vanishing for one refresh)
+  if (!js.partial) {
+    for (const [k, j] of pool.trips) {
+      const x = arrive ? arrMs(j) : depMs(j);
+      if (x >= span[0] && x <= span[1] && !keys.has(k)) pool.trips.delete(k);
+    }
   }
   js.forEach((j) => pool.trips.set(tripKey(j), j));
   const kind = arrive ? 'arr' : 'dep';

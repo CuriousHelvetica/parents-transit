@@ -99,7 +99,9 @@ function journey(ride, opts = {}) {
 // Fake Transport for NSW trip planner: a service every `every` minutes (at :03 past the grid), answering
 // like the real one: leave-at = the next 8 trips from the asked time, arrive-by = the last 8 arriving by then.
 // state.calls records each request; state.offline makes trip requests fail; state.lag delays answers (ms);
-// state.extra(T, arrive) can add journeys; state.empty answers with no trips.
+// state.extra(T, arrive) can add journeys; state.empty answers with no trips. Each search asks twice (fastest, and
+// routeType=leastwalking, recorded as calls[].less); state.lessWalk(T, arrive, rides) answers the second one
+// differently, state.lessFail makes it fail.
 function tripApi(opts = {}) {
   const state = { calls: [], offline: false, lag: opts.lag || 0, every: opts.every || 15, extra: opts.extra || null, opts };
   const handler = (route) => {
@@ -107,8 +109,10 @@ function tripApi(opts = {}) {
     const q = u.searchParams;
     const T = sydMs(q.get('itdDate'), q.get('itdTime'));
     const arrive = q.get('depArrMacro') === 'arr';
-    state.calls.push({ T, arrive });
+    const less = q.get('routeType') === 'leastwalking';
+    state.calls.push({ T, arrive, less });
     if (state.offline) return route.abort();
+    if (less && state.lessFail) return route.fulfill({ status: 429, body: 'Too many requests' }).catch(() => {});
     const G = state.every * MIN, OFF = 3 * MIN;
     const lead = (opts.walk === false ? 0 : 10 * MIN);
     const total = 4 * (opts.gap || 5) * MIN + (opts.walk === false ? 0 : 3 * MIN);
@@ -124,6 +128,8 @@ function tripApi(opts = {}) {
     // opts.alt: each train also has a second trip with a different connection (arrives opts.alt minutes later)
     if (opts.alt && !state.empty) js.push(...rides.map((r) => journey(r, { ...opts, arriveExtra: opts.alt })));
     if (state.extra) js.push(...state.extra(T, arrive));
+    // The least-walking request answers the same trips unless state.lessWalk(T, arrive, rides) gives others
+    if (less && state.lessWalk) { js.length = 0; js.push(...state.lessWalk(T, arrive, rides)); }
     const reply = () => route.fulfill({ json: { journeys: js } }).catch(() => {});
     return state.lag ? new Promise((ok) => setTimeout(() => ok(reply()), state.lag)) : reply();
   };

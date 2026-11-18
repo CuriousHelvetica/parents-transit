@@ -71,6 +71,10 @@ and nothing that can be broken by a stray tap.
 - **Departure times, not "leave home" times** (v1.6.0). Cards show when the first train or bus leaves its stop
   (「晚上 6:21 開車 · 21 分鐘後」) plus the walk to it. The parents judge when to leave. An earlier design
   shifted times for slow walking and made trips vanish while they walked to the station.
+- **Fastest + least-walking trips** (v1.9.3): every trip search asks Transport for NSW both ways at once and
+  merges them; the list waits for both (owner's choice). Trip requests are spaced 250 ms apart (`tripGate`)
+  because Transport for NSW refuses more than about 5 a second. Don't add `changeSpeed=slow`: the app already
+  lengthens walks by 40%, so it would count twice.
 - **Walking times are shown 40% longer** (`WALK_SLOW`), rounded up. Display only: no train or arrival time is
   moved. The 40% is an estimate; tune it when the owner reports their real walking times.
 - **Trips stay listed until the train has left.** If the walk is longer than the time left, a hint shows; the
