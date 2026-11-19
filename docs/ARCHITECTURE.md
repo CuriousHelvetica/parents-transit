@@ -29,7 +29,7 @@ iPhone (home-screen web app)
 | `theme-sunrise.css` | Colours of 主題 1, layered on `style.css` |
 | `names.js` | Chinese station names, and the default places and their order |
 | `config.js` | The Worker's address |
-| `version.js` | Version and date shown in 設定 |
+| `version.js` | Version and date shown at the bottom of the main screen |
 | `worker/worker.js` | The Cloudflare Worker (deployed by pasting into the Cloudflare dashboard) |
 | `tests/` | Automated tests (Playwright, with every outside service faked) |
 

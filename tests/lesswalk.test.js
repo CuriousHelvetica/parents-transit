@@ -43,6 +43,17 @@ module.exports = async (check) => {
   check(t.errors.length === 0, `no page errors (${t.errors.join(' | ')})`);
   await t.close();
 
+  // Transport for NSW refuses a request (429): tried once more, the list still appears
+  const r = await open({ api: { every: 30 } });
+  r.api.refuse = 1;
+  await chooseTo(r.page, '寶活站'); await search(r.page);
+  await r.page.waitForTimeout(2500);   // the retry waits 1.5 s
+  const c0 = r.api.calls[0];
+  const repeats = r.api.calls.filter((c) => c.T === c0.T && c.less === c0.less && c.arrive === c0.arrive).length;
+  check(repeats === 2, `a request refused as "too many" is sent once more (${repeats} times)`);
+  check(await r.page.locator('.card[data-j]').count() > 0 && !(await r.page.locator('.err').count()), 'and the trips are shown, no error');
+  await r.close();
+
   // Same trips both ways (the usual case for a short walk): each shown once
   const u = await open({ api: { every: 30 } });
   await chooseTo(u.page, '寶活站'); await search(u.page);

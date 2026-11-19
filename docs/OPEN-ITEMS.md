@@ -19,14 +19,7 @@ These could not be checked without the real services or a real iPhone.
 Confirmed on the owner's iPhone: trains that just left appear (Transport for NSW does return past
 departures); the long-press fix; the double-tap zoom fix (v1.8.3); translation with the current model.
 
-## Next release (requested by the owner, 2026-11-18)
-
-- **Version number at the bottom of the main screen.** Move it from the bottom of 設定 to the bottom of the
-  main screen (below ⚙️ 設定), small and quiet, so the owner can check a phone has the update without the
-  2-second hold and scrolling. Mock it up first (both themes). Update the real-phone checklist step 1, SETUP.md,
-  CHANGELOG.md's version note, and the `settings show the version` check in `tests/home.test.js`.
-
-## Next Worker change (agreed, waiting for the parents' test)
+## Worker change made in v1.9.4 (still to be checked against the parents' own names)
 
 Live check on 2026-11-18 (8 searches, 1–2 s each, all answered by the fast llama model): 悉尼大學, 雪梨大學,
 情人港, 皇家阿爾弗雷德王子醫院, 動物園, 邦迪海灘 all correct. Two showed a weakness: for a name it doesn't
@@ -34,7 +27,7 @@ know, the AI picks a real place anyway and **labels it with the typed words**, s
 - 康縣醫院 (made up, meant as Concord Hospital) → Royal Prince Alfred Hospital, shown as 「康縣醫院」.
 - 車士活醫院 → Royal North Shore Hospital (St Leonards), shown as 「車士活醫院」.
 
-Planned fix, to be made together with whatever the parents' test shows (one Worker paste):
+Done in v1.9.4 (the owner asked for queued small changes to go in with the code review):
 - `PLACE_PROMPT`: "zh" must be the usual Chinese name of the place found, never the typed words copied
   back; return nothing when unsure instead of a best guess.
 - Add a `zoo` kind (🦁 動物園; the AI already answers "zoo", which now falls back to 📍 other).
@@ -62,8 +55,7 @@ See [`DECISIONS.md`](DECISIONS.md) for the reasoning.
 
 After any change to these areas, ask the owner to try:
 
-1. **Version:** hold ⚙️ 設定 for 2 seconds; the bottom of the page shows the new version (moving to the main
-   screen in the next release). If not, swipe the app
+1. **Version:** the bottom of the main screen shows the new version. If not, swipe the app away and reopen it. If not, swipe the app
    away and reopen it.
 2. **A search:** 去哪裡 → a station → 🔍 搜尋路線. Cards show a departure time, the walk, and the arrival.
 3. **Time bar:** several quick taps on 遲一點 ▶ respond at once; ⏱️ 現在 returns to now.

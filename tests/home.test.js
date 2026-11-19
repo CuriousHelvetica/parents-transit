@@ -18,6 +18,12 @@ module.exports = async (check) => {
   check(h2.join('|') === '去哪裡?|從哪裡出發?', `two questions, destination first: ${h2.join(' / ')}`);
   check(await page.locator('h2 .num, [data-when]').count() === 0, 'no numbers, no time question');
   check((await page.locator('[data-row=from]').innerText()).includes('家'), 'starts from 家');
+  {
+    const v = require('fs').readFileSync(require('path').join(__dirname, '..', 'version.js'), 'utf8');
+    const ver = v.match(/APP_VERSION = '([^']+)'/)[1], date = v.match(/APP_DATE = '([^']+)'/)[1];
+    const shown = await page.locator('.home-version').innerText();
+    check(shown.includes(ver) && shown.includes(date), `main screen shows the version at the bottom (${shown})`);
+  }
   check(await page.locator('[data-row=to].empty').count() === 1, 'destination empty at start');
   await page.click('[data-search-trip]');
   check(await page.locator('h1:has-text("去哪裡?")').count() === 1, 'search without a destination opens the destination list');
@@ -111,9 +117,9 @@ module.exports = async (check) => {
   check(await page.locator('h1:has-text("設定")').count() === 0, '設定: letting go after 1 second does nothing');
   await openSettings(page);
   check(await page.locator('h1:has-text("設定")').count() === 1, '設定: opens after holding 2 seconds');
-  const version = (await page.locator('.version').innerText());
   const expected = require('fs').readFileSync(require('path').join(__dirname, '..', 'version.js'), 'utf8').match(/APP_VERSION = '([^']+)'/)[1];
-  check(version.includes(expected), `settings show the version (${expected})`);
+  check(!(await page.locator('.version').innerText()).includes('版本'), '設定 keeps the change log link and map credit, not the version');
+  check((await page.locator('.version a').allInnerTexts()).join().includes('更新紀錄'), '設定: 更新紀錄 link still there');
   const firstTwo = () => page.evaluate(() => settings.places.slice(0, 2).map((p) => p.en).join(','));
   check(await page.locator('[data-del]').count() === 0 && await page.locator('[data-grip]').count() === N, 'rows have a ☰ handle only, no delete button');
   const order = (n) => page.evaluate((n) => settings.places.slice(0, n).map((p) => p.en).join(','), n);

@@ -238,3 +238,5 @@ body.alert-off .nogps { background: rgba(255,255,255,.2); }
 .result .rname { display: block; font-size: 1.25em; font-weight: 700; }
 .result .rnote { margin-top: 4px; }
 .aihint { margin: 10px 2px 4px; }
+/* Version on the main screen, so a phone's update can be checked at a glance */
+.home-version { margin-top: 14px; }

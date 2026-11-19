@@ -124,9 +124,12 @@ module.exports = async (check) => {
   check(/已開出|剛開出/.test(await page.locator('.leave').first().innerText()) && await page.locator('[data-track]:not([disabled])').count() === 1,
     'details: 「已開出」, 還有幾個站 available');
   await page.click('[data-back]'); await page.waitForSelector('.card[data-j]');
-  await page.click('[data-step="1"]'); await page.waitForTimeout(100);
+  await page.click('[data-step="1"]');
+  await page.waitForFunction(() => !document.querySelector('.gone-row'), null, { timeout: 3000 }).catch(() => {});
   check(await page.locator('.gone-row').count() === 0, '▶: no 「已開出」 trips');
-  await page.click('[data-now]'); await page.waitForTimeout(100);
+  await page.click('[data-now]');
+  // From memory at once on a fast computer; give a slower one a moment (the list redraws when ready)
+  await page.waitForFunction((n) => document.querySelectorAll('.gone-row').length === n, dep.length, { timeout: 3000 }).catch(() => {});
   check(await page.locator('.gone-row').count() === dep.length, '⏱️ 現在: they are back');
   await t.close();
 

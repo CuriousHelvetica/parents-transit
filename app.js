@@ -215,9 +215,11 @@ async function fetchWithTimeout(url, read = (res) => res, ms = FETCH_TIMEOUT_MS)
   }
 }
 const readJson = (res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); };
-// Transport for NSW refuses more than about 5 requests a second (429). Trip searches (two per search, plus
-// read-ahead) start at least TRIP_GAP_MS apart, so at most 4 a second.
+// Transport for NSW refuses more than about 5 requests a second (429). Every request to it (two per trip
+// search, read-ahead, place lookups) starts at least TRIP_GAP_MS after the one before, so at most 4 a second;
+// one that is refused anyway is tried once more after RETRY_429_MS.
 const TRIP_GAP_MS = 250;
+const RETRY_429_MS = 1500;
 let tripNextAt = 0;
 async function tripGate() {
   const now = Date.now();
@@ -226,9 +228,15 @@ async function tripGate() {
   if (at > now) await new Promise((ok) => setTimeout(ok, at - now));
 }
 async function api(endpoint, params) {
-  if (endpoint === 'trip') await tripGate();
   const q = new URLSearchParams({ outputFormat: 'rapidJSON', coordOutputFormat: 'EPSG:4326', version: '10.2.1.42', ...params });
-  return fetchWithTimeout(`${WORKER_URL}/tp/${endpoint}?${q}`, readJson);
+  const once = async () => { await tripGate(); return fetchWithTimeout(`${WORKER_URL}/tp/${endpoint}?${q}`, readJson); };
+  try {
+    return await once();
+  } catch (e) {
+    if (e.message !== 'HTTP 429') throw e;
+    await new Promise((ok) => setTimeout(ok, RETRY_429_MS));
+    return once();
+  }
 }
 
 async function searchPlaces(text) {
@@ -677,6 +685,7 @@ function showHome() {
     <div class="bar"><button class="btn primary big" data-search-trip>🔍 搜尋路線</button></div>
     <div class="bar"><button class="btn" data-reset-trip>↺ 重新開始</button></div>
     <button class="setlink" data-settings>⚙️ 設定<span>家人用:按住 2 秒</span></button>
+    <div class="version home-version">版本 ${esc(APP_VERSION)} · ${esc(APP_DATE)}</div>
   `, true);
   $app.querySelectorAll('[data-row]').forEach((b) => b.onclick = () => showPicker(b.dataset.row));
   $app.querySelector('[data-search-trip]').onclick = () => {
@@ -1820,8 +1829,7 @@ function showSettings(deleting = false, keepScroll = false) {
     <div class="bar"><button class="btn" data-testvoice>🔊 試聽廣東話</button></div>
     <div class="small">如果不是廣東話,請參閱設定說明。</div>
     <div class="bar"><button class="btn danger" data-reset>還原預設</button></div>
-    <div class="version">版本 ${esc(APP_VERSION)} · ${esc(APP_DATE)} ·
-      <a href="${esc(CHANGELOG_URL)}" target="_blank" rel="noopener">更新紀錄</a><br>
+    <div class="version"><a href="${esc(CHANGELOG_URL)}" target="_blank" rel="noopener">更新紀錄</a><br>
       地址資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>`, keepScroll);
   const on = (sel, fn) => { const el = $app.querySelector(sel); if (el) el.onclick = fn; };
   $app.querySelectorAll('[data-theme]').forEach((b) => b.onclick = () => { applyTheme(b.dataset.theme); showSettings(deleting, true); });
@@ -1948,7 +1956,7 @@ const PLACE_KIND = {
   airport: ['✈️', '機場'], shopping: ['🛍️', '商場'], hospital: ['🏥', '醫院'], university: ['🎓', '大學'],
   school: ['🏫', '學校'], club: ['🍽️', '會所'], park: ['🌳', '公園'], beach: ['🏖️', '海灘'], museum: ['🏛️', '博物館'],
   church: ['⛪', '教堂'], temple: ['🛕', '廟宇'], market: ['🧺', '市場'], government: ['🏛️', '政府機構'],
-  suburb: ['🏘️', '地區'],
+  suburb: ['🏘️', '地區'], zoo: ['🦁', '動物園'], restaurant: ['🍽️', '餐廳'],
 };
 // A place from the Worker's /place (a Transport for NSW location with zh and kind) -> a search result
 function aiPlace(loc) {

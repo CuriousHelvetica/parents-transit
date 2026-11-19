@@ -1,6 +1,6 @@
 # 爸媽出行 Sydney Trip Planner — change log
 
-The version is shown at the bottom of **⚙️ 設定** (e.g. `版本 v1.0 · 2026-11-01`). If a phone shows an older version than the latest below, close the app fully (swipe it away) and open it again.
+The version is shown at the bottom of the main screen, under ⚙️ 設定 (e.g. `版本 v1.9.4 · 2026-11-19`; before v1.9.4 it was at the bottom of 設定). If a phone shows an older version than the latest below, close the app fully (swipe it away) and open it again.
 
 Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …); bigger new features bump the middle number (v1.3, v1.4 …).
 
@@ -48,6 +48,16 @@ Numbering: bug fixes and small tweaks bump the last number (v1.2.1, v1.2.2 …);
 - The list waits for both answers (the owner's choice: a few more seconds for a complete picture, rather than cards moving once it is shown). If the least-walking answer fails, the fastest trips show alone.
 - Trip requests are now spaced at least a quarter of a second apart: with twice as many, Transport for NSW refused some (it allows about 5 a second).
 - No Worker change.
+
+### v1.9.4 — 2026-11-19
+From a full review of the code, plus the items queued for this release.
+- The version number is now at the bottom of the main screen (under ⚙️ 設定), so checking that a phone has the update no longer needs the 2-second hold. 設定 keeps the 更新紀錄 link and the map credit.
+- When Transport for NSW refuses a request as "too many" (it allows about 5 a second), the app now waits a moment and tries once more, instead of that request failing. Every request to it (trips, place searches, the 📍 你在 backup lookup) is now spaced out, not only trip searches.
+- Worker: the Chinese place search must name the place it found in its own usual Chinese (it had labelled Royal Prince Alfred Hospital 「康縣醫院」 because that was what was typed), and return nothing rather than guess when it doesn't recognise a name. New kinds 🦁 動物園 and 🍽️ 餐廳.
+- Worker: a restaurant or café is no longer thrown out of the place search; it only comes last, so "Darling Harbour" is still never a hotel, but a restaurant she names can be found.
+- Worker: if Transport for NSW can't be reached at all, the Worker now answers with a clear error the app can read, instead of failing without the headers the browser needs.
+- Tests: the 「⏱️ 現在」 check that sometimes failed on slower computers now waits for the list to be redrawn.
+- **Needs the Worker updated.**
 
 ### Docs — 2026-11-18 (no change to the app)
 - Live check of the Chinese place search recorded in `docs/OPEN-ITEMS.md`, with the agreed next Worker change (AI must not label a wrong place with the typed words), waiting for the parents' own test.

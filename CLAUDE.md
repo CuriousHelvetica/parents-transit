@@ -31,7 +31,7 @@ and nothing that can be broken by a stray tap.
 - **Explain in plain language.** The owner is technical enough to follow, but wants outcomes, not code tours.
 - **Versions:** small fixes bump the last number (v1.7.1 → v1.7.2); new features bump the middle (v1.8.0).
   Update `version.js` (version and date) and add a CHANGELOG.md entry with every change. The version shows at
-  the bottom of 設定, which is how the owner checks a phone has the update.
+  the bottom of the main screen (since v1.9.4), which is how the owner checks a phone has the update.
 - **Shipping:** run `npm test` and push only if everything passes. Push straight to `main` (no pull requests).
   Then confirm the "pages build and deployment" run for that commit succeeded, and say so.
 - **Docs:** keep CHANGELOG.md ("What the app does" at the top, then history), SETUP.md and README.md in step
@@ -72,8 +72,8 @@ and nothing that can be broken by a stray tap.
   (「晚上 6:21 開車 · 21 分鐘後」) plus the walk to it. The parents judge when to leave. An earlier design
   shifted times for slow walking and made trips vanish while they walked to the station.
 - **Fastest + least-walking trips** (v1.9.3): every trip search asks Transport for NSW both ways at once and
-  merges them; the list waits for both (owner's choice). Trip requests are spaced 250 ms apart (`tripGate`)
-  because Transport for NSW refuses more than about 5 a second. Don't add `changeSpeed=slow`: the app already
+  merges them; the list waits for both (owner's choice). Every request to Transport for NSW is spaced 250 ms
+  apart (`tripGate`) and a 429 is retried once after 1.5 s (v1.9.4): it refuses more than about 5 a second. Don't add `changeSpeed=slow`: the app already
   lengthens walks by 40%, so it would count twice.
 - **Walking times are shown 40% longer** (`WALK_SLOW`), rounded up. Display only: no train or arrival time is
   moved. The 40% is an estimate; tune it when the owner reports their real walking times.
@@ -112,8 +112,6 @@ and nothing that can be broken by a stray tap.
 
 ## Open items
 
-Next release (owner's request): show the version at the bottom of the main screen instead of 設定. See
-`docs/OPEN-ITEMS.md`, "Next release".
 
 Not verified (needs the real service or a real phone):
 - How Transport for NSW marks a **cancelled** service in trip results. The app has no check for it. Ask the
@@ -122,8 +120,8 @@ Not verified (needs the real service or a real phone):
 - The no-GPS countdown in a real tunnel; dragging to reorder on a real iPhone; the +40% walking pace.
 - Whether OpenStreetMap labels the Harbour Bridge as Milsons Point (📍 你在).
 - How well the AI Chinese search handles names the parents use: waiting for the owner's mother to try five or
-  six. A Worker change is already agreed (stop the AI labelling a wrong place with the typed words); see
-  `docs/OPEN-ITEMS.md`, "Next Worker change". The new Fish Market is not in Transport for NSW's data.
+  six. v1.9.4 already stops the AI labelling a wrong place with the typed words; see `docs/OPEN-ITEMS.md`.
+  The new Fish Market is not in Transport for NSW's data.
 
 Parked, owner's decision needed before building:
 - Remembering the open trip or countdown when the iPhone restarts the app.

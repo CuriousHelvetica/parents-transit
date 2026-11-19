@@ -24,7 +24,7 @@ function fakeAI({ retired = [], answer = (model, text) => `中文(${model}):${te
     calls,
     async run(model, input) {
       const user = input.messages[1].content;
-      calls.push({ model, user });
+      calls.push({ model, user, system: input.messages[0].content });
       if (retired.includes(model)) throw new Error('5028: model has been deprecated (410 Gone)');
       return { response: answer(model, user) };
     },
@@ -170,6 +170,15 @@ module.exports = async (check) => {
   check(tfnswAsked.length === 3, `/place: one lookup per meaning, at most 3 (${tfnswAsked.length})`);
   check(body.places[1].kind === 'other', '/place: an unknown kind becomes "other"');
 
+  // A restaurant that is the only match is kept (not thrown out like the Darling Harbour hotel)
+  w = await loadWorker();
+  LOCS['Golden Century'] = [{ id: 'gc', name: 'Golden Century Seafood Restaurant, Sydney', type: 'poi' }];
+  ai = said([{ en: 'Golden Century', zh: '金唐海鮮酒家', kind: 'restaurant' }]);
+  body = await (await askPlace(w, penv(ai), '金唐')).json();
+  check(body.places.length === 1 && body.places[0].id === 'gc' && body.places[0].kind === 'restaurant', '/place: a restaurant that is the only match is kept');
+  check(/never just the typed words/.test(ai.calls[0].system) && /do not guess/.test(ai.calls[0].system),
+    '/place asks the AI for the place\'s own Chinese name, and nothing when unsure');
+
   // A meaning with no matching name: nothing, not Transport for NSW's "best" guess
   w = await loadWorker();
   ai = said([{ en: 'Sydney Fish Market', zh: '魚市場', kind: 'market' }]);
@@ -222,5 +231,10 @@ module.exports = async (check) => {
   check(res.status === 403, '/place: other websites: Forbidden');
   res = await askPlace(w, { ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' }, '機場');
   check(res.status === 501, '/place: no Workers AI binding: clear error');
+  // Transport for NSW unreachable: a clear 502 the page can read (CORS headers kept)
+  global.fetch = async () => { throw new Error('network down'); };
+  w = await loadWorker();
+  res = await w.fetch(new Request('https://w.example/tp/trip?x=1', { headers: { Origin: ORIGIN } }), { ALLOWED_ORIGIN: ORIGIN, TFNSW_API_KEY: 'k' });
+  check(res.status === 502 && res.headers.get('Access-Control-Allow-Origin') === ORIGIN, 'trip planner unreachable: 502 with CORS headers, not a crash');
   global.fetch = realFetch;
 };

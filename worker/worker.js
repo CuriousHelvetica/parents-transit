@@ -38,11 +38,13 @@ const PLACE_PROMPT =
   'Say which real places in Sydney they most likely mean: at most 3, most likely first, only more than one if it is ' +
   'genuinely unclear. For each give "en": the official English name exactly as Transport for NSW would list it ' +
   '(e.g. "University of Sydney", "Royal Prince Alfred Hospital", "Taronga Zoo"), no suburb or address; ' +
-  '"zh": a short Traditional Chinese (繁體中文) name as Sydney Chinese speakers say it; and "kind", one of: ' +
+  '"zh": the usual short Traditional Chinese (繁體中文) name of THAT place as Sydney Chinese speakers say it — ' +
+  'never just the typed words copied back, unless they really are that place\'s usual name; and "kind", one of: ' +
   'airport, shopping, hospital, university, school, club, park, beach, museum, church, temple, market, government, ' +
-  'suburb, station, other. Answer with JSON only, like {"places":[{"en":"...","zh":"...","kind":"..."}]}.';
+  'suburb, station, zoo, restaurant, other. If you do not recognise the place, do not guess: answer ' +
+  '{"places":[]}. Answer with JSON only, like {"places":[{"en":"...","zh":"...","kind":"..."}]}.';
 const PLACE_KINDS = ['airport', 'shopping', 'hospital', 'university', 'school', 'club', 'park', 'beach', 'museum',
-  'church', 'temple', 'market', 'government', 'suburb', 'station', 'other'];
+  'church', 'temple', 'market', 'government', 'suburb', 'station', 'zoo', 'restaurant', 'other'];
 let workingPlaceModel = null;
 const placeMemo = new Map();          // typed text -> answer (only answers that found something)
 const translationMemo = new Map();   // text -> { zh, model }
@@ -89,9 +91,15 @@ export default {
     if (!allowed.includes(origin)) return new Response('Forbidden', { status: 403, headers: cors });
     if (!env.TFNSW_API_KEY) return new Response('TFNSW_API_KEY is not set', { status: 500, headers: cors });
 
-    const upstream = await fetch(UPSTREAM + match[1] + url.search, {
-      headers: { Authorization: 'apikey ' + env.TFNSW_API_KEY, Accept: 'application/json' },
-    });
+    let upstream;
+    try {
+      upstream = await fetch(UPSTREAM + match[1] + url.search, {
+        headers: { Authorization: 'apikey ' + env.TFNSW_API_KEY, Accept: 'application/json' },
+      });
+    } catch (e) {
+      // Transport for NSW unreachable: a clear error the web page can read (with the CORS headers)
+      return new Response('Transport for NSW did not answer', { status: 502, headers: cors });
+    }
     return new Response(upstream.body, {
       status: upstream.status,
       headers: {
@@ -199,14 +207,15 @@ function core(s) {
 const NOT_WANTED = /\b(hotel|motel|apartments?|backpackers|hostel|car ?park|parking|post office|police|bike (lockers?|hire)|atm|toilets?|cafe|restaurant)\b/i;
 // The best real match for one English name among Transport for NSW's results, or null.
 // The name must match (exactly, or one containing the other); then the place itself beats the suburb,
-// a station or wharf, and a bus stop. Hotels, car parks and the like only if that is what was asked for.
+// a station or wharf, and a bus stop. Hotels, car parks, cafés and the like come last (unless that is what
+// was asked for), so "Darling Harbour" is never the Holiday Inn, but a restaurant that is the only match is kept.
 function bestMatch(en, locations) {
   const q = core(en);
   if (!q) return null;
   let best = null, bestScore = Infinity;
   locations.forEach((loc, i) => {
     if (!loc || !loc.id) return;
-    if (NOT_WANTED.test(loc.name) && !NOT_WANTED.test(en)) return;
+    const unwanted = NOT_WANTED.test(loc.name) && !NOT_WANTED.test(en);
     const c = core(loc.name);
     const match = c === q ? 0 : (c.length >= 4 && (c.includes(q) || q.includes(c))) ? 1 : null;
     if (match === null) return;
@@ -214,7 +223,7 @@ function bestMatch(en, locations) {
     const type = loc.type === 'poi' ? 0 : (loc.type === 'suburb' || loc.type === 'locality') ? 1
       : loc.type === 'stop' && (modes.includes(1) || modes.includes(2) || modes.includes(4) || modes.includes(9)) ? 2
       : loc.type === 'stop' ? 4 : loc.type === 'street' ? 5 : 3;
-    const score = match * 100 + type * 10 + Math.min(i, 9);
+    const score = (unwanted ? 1000 : 0) + match * 100 + type * 10 + Math.min(i, 9);
     if (score < bestScore) { best = loc; bestScore = score; }
   });
   return best;

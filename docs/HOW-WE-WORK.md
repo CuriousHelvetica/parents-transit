@@ -33,7 +33,7 @@ preferences, written down so they carry over to any future session or collaborat
 - Small fixes bump the last number (v1.8.2 → v1.8.3). New features bump the middle number (v1.9.0). The owner
   sometimes names the version.
 - Every change updates `version.js` (version and date) and adds an entry to `CHANGELOG.md`.
-- The version at the bottom of 設定 is how the owner checks that a phone has picked up an update.
+- The version at the bottom of the main screen is how the owner checks that a phone has picked up an update.
 - Keep `SETUP.md`, `README.md`, `CLAUDE.md` and these notes in step with the app.
 
 ## Testing and shipping

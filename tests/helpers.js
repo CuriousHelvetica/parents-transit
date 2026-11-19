@@ -101,7 +101,7 @@ function journey(ride, opts = {}) {
 // state.calls records each request; state.offline makes trip requests fail; state.lag delays answers (ms);
 // state.extra(T, arrive) can add journeys; state.empty answers with no trips. Each search asks twice (fastest, and
 // routeType=leastwalking, recorded as calls[].less); state.lessWalk(T, arrive, rides) answers the second one
-// differently, state.lessFail makes it fail.
+// differently, state.lessFail makes it fail. state.refuse = n: the next n trip requests get 429 (too many).
 function tripApi(opts = {}) {
   const state = { calls: [], offline: false, lag: opts.lag || 0, every: opts.every || 15, extra: opts.extra || null, opts };
   const handler = (route) => {
@@ -113,6 +113,7 @@ function tripApi(opts = {}) {
     state.calls.push({ T, arrive, less });
     if (state.offline) return route.abort();
     if (less && state.lessFail) return route.fulfill({ status: 429, body: 'Too many requests' }).catch(() => {});
+    if (state.refuse > 0) { state.refuse -= 1; return route.fulfill({ status: 429, body: 'Too many requests' }).catch(() => {}); }
     const G = state.every * MIN, OFF = 3 * MIN;
     const lead = (opts.walk === false ? 0 : 10 * MIN);
     const total = 4 * (opts.gap || 5) * MIN + (opts.walk === false ? 0 : 3 * MIN);
